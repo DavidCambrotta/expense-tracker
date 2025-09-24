@@ -1,0 +1,130 @@
+📝 Expense Tracker App – Roadmap
+1. Project Setup
+
+    Define requirements (inputs: category, date, value, notes; outputs: list, totals)
+
+    Create Git repository (local, then push to GitHub/GitLab if desired)
+
+    Setup project folder structure
+
+        /backend (database + logic)
+
+        /frontend (CLI/GUI)
+
+        /tests
+
+        /docs
+
+    Add requirements.txt (for dependencies)
+
+    Setup .gitignore (Python cache, DB files, venv, IDE configs)
+
+    Initialize virtual environment
+
+2. Backend Development
+
+    Define data model (Expense: id, category, date, value, notes)
+
+    Implement database layer
+
+        Setup SQLite connection
+
+        Create expenses table
+
+    Implement CRUD functions
+
+        add_expense(category, date, value, notes)
+
+        get_expenses()
+
+        update_expense(id, ...)
+
+        delete_expense(id)
+
+    Add basic reporting functions
+
+        Get total expenses by date range
+
+        Get total expenses by category
+
+3. Frontend (Start Simple)
+
+    CLI version (first prototype)
+
+        Menu: Add expense, View all, Delete, Reports
+
+        Format expense listing in table style
+
+    Choose GUI framework to try next (Tkinter, PyQt, or Kivy)
+
+    Build minimal GUI prototype (only add + list expenses)
+
+4. Database Options
+
+    Start with SQLite (local .db file)
+
+    Abstract database code (so you can swap later)
+
+    Document future options (PostgreSQL, MySQL, cloud)
+
+5. Git Workflow
+
+    Create main (stable) and dev (development) branches
+
+    Work in feature branches (feature/backend-crud, etc.)
+
+    Commit regularly with clear messages
+
+    Use pull requests (if collaborating)
+
+6. Jira Setup
+
+    Create new project in Jira (Kanban or Scrum)
+
+    Define Epics
+
+        Backend
+
+        Frontend
+
+        Database
+
+        Testing
+
+        Deployment
+
+    Break into Stories/Tasks (use roadmap steps above)
+
+    Track progress with board (To Do → In Progress → Done)
+
+7. Testing
+
+    Setup pytest
+
+    Write unit tests for CRUD functions
+
+    Write integration tests with SQLite
+
+    Test CLI flows manually
+
+8. Deployment (Windows)
+
+    Package app with PyInstaller (.exe)
+
+    Test portable .exe version
+
+    Create installer (optional, e.g., Inno Setup or NSIS)
+
+    Document installation steps
+
+9. Future Enhancements (Optional Roadmap)
+
+    Export reports (CSV, Excel, PDF)
+
+    Add charts (matplotlib/plotly)
+
+    Add user authentication (optional)
+
+    Sync with cloud DB or API
+
+    Mobile version (Kivy or React Native + API)
