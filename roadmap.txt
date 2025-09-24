@@ -1,4 +1,5 @@
-📝 Expense Tracker App – Roadmap
+Expense Tracker App – Roadmap
+
 1. Project Setup
 
     Define requirements (inputs: category, date, value, notes; outputs: list, totals)
