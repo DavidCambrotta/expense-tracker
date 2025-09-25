@@ -104,7 +104,7 @@ def handle_reports():
         else:
             print("Invalid choice.")
 
-def main():
+def menu():
     while True:
         print_menu()
         choice = input("Choose an option: ")
