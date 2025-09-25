@@ -1,15 +1,17 @@
 from backend import crud, reports
 from tabulate import tabulate
+from colorama import Fore, Style, init
 
+init(autoreset=True)
 
 def print_menu():
-    print("\n=== Expense Tracker ===")
-    print("1. Add expense")
+    print(Fore.MAGENTA + "\n=== Expense Tracker ===")
+    print(Fore.CYAN + "1. Add expense")
     print("2. List expenses")
     print("3. Update expense")
     print("4. Delete expense")
     print("5. Reports")
-    print("0. Exit")
+    print(Fore.RED + "0. Exit")
 
 def print_reports_menu():
     print("\n--- Reports ---")
@@ -25,9 +27,9 @@ def handle_add():
     description = input("Description (optional): ")
     try:
         crud.add_expense(category, date, value, description)
-        print("✅ Expense added successfully.")
+        print(Fore.GREEN + "✅ Expense added successfully.")
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(Fore.RED + f"❌ Error: {e}")
 
 def handle_list():
     expenses = crud.get_expenses()
@@ -51,17 +53,17 @@ def handle_update():
         value = input("New value: ")
         description = input("New description (optional): ")
         crud.update_expense(expense_id, category, date, value, description)
-        print("✅ Expense updated successfully.")
+        print(Fore.GREEN + "✅ Expense updated successfully.")
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(Fore.RED + f"❌ Error: {e}")
 
 def handle_delete():
     try:
         expense_id = int(input("Expense ID to delete: "))
         crud.delete_expense(expense_id)
-        print("✅ Expense deleted successfully.")
+        print(Fore.GREEN + "✅ Expense deleted successfully.")
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(Fore.RED + f"❌ Error: {e}")
 
 def handle_reports():
     while True:
@@ -78,15 +80,15 @@ def handle_reports():
 
 
             except Exception as e:
-                print(f"❌ Error: {e}")
+                print(Fore.RED + f"❌ Error: {e}")
         elif choice == "2":
             start = input("Start date (YYYY-MM-DD): ")
             end = input("End date (YYYY-MM-DD): ")
             try:
                 total = reports.get_total_by_date_range(start, end)
-                print(f"Total from {start} to {end}: ${total:.2f}")
+                print(Fore.YELLOW + f"Total from {start} to {end}: ${total:.2f}")
             except Exception as e:
-                print(f"❌ Error: {e}")
+                print(Fore.RED + f"❌ Error: {e}")
         elif choice == "3":
             summary = reports.get_monthly_summary()
             if not summary:
