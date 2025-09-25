@@ -1,28 +1,112 @@
-from backend import crud
+from backend import crud, reports
 
-def menu():
+def print_menu():
+    print("\n=== Expense Tracker ===")
+    print("1. Add expense")
+    print("2. List expenses")
+    print("3. Update expense")
+    print("4. Delete expense")
+    print("5. Reports")
+    print("0. Exit")
+
+def print_reports_menu():
+    print("\n--- Reports ---")
+    print("1. Total by category")
+    print("2. Total by date range")
+    print("3. Monthly summary")
+    print("0. Back")
+
+def handle_add():
+    category = input("Category: ")
+    date = input("Date (YYYY-MM-DD): ")
+    value = input("Value: ")
+    description = input("Description (optional): ")
+    try:
+        crud.add_expense(category, date, value, description)
+        print("✅ Expense added successfully.")
+    except Exception as e:
+        print(f"❌ Error: {e}")
+
+def handle_list():
+    expenses = crud.get_expenses()
+    if not expenses:
+        print("No expenses found.")
+        return
+    print("\n--- Expenses ---")
+    for exp in expenses:
+        print(f"[{exp[0]}] {exp[1]} | {exp[2]} | ${exp[3]:.2f} | {exp[4]}")
+
+def handle_update():
+    try:
+        expense_id = int(input("Expense ID to update: "))
+        category = input("New category: ")
+        date = input("New date (YYYY-MM-DD): ")
+        value = input("New value: ")
+        description = input("New description (optional): ")
+        crud.update_expense(expense_id, category, date, value, description)
+        print("✅ Expense updated successfully.")
+    except Exception as e:
+        print(f"❌ Error: {e}")
+
+def handle_delete():
+    try:
+        expense_id = int(input("Expense ID to delete: "))
+        crud.delete_expense(expense_id)
+        print("✅ Expense deleted successfully.")
+    except Exception as e:
+        print(f"❌ Error: {e}")
+
+def handle_reports():
     while True:
-        print("\n--- Expense Tracker ---")
-        print("1. Add Expense")
-        print("2. View Expenses")
-        print("3. Exit")
-
-        choice = input("Choose an option: ")
-        
+        print_reports_menu()
+        choice = input("Choose report: ")
         if choice == "1":
             category = input("Category: ")
-            date = input("Date (YYYY-MM-DD): ")
-            value = float(input("Value: "))
-            notes = input("Notes (optional): ")
-            crud.add_expense(category, date, value, notes)
-            print("✅ Expense added!")
-        
+            try:
+                total = reports.get_total_by_category(category)
+                print(f"Total for {category}: ${total:.2f}")
+            except Exception as e:
+                print(f"❌ Error: {e}")
         elif choice == "2":
-            expenses = crud.get_expenses()
-            for e in expenses:
-                print(e)
-        
+            start = input("Start date (YYYY-MM-DD): ")
+            end = input("End date (YYYY-MM-DD): ")
+            try:
+                total = reports.get_total_by_date_range(start, end)
+                print(f"Total from {start} to {end}: ${total:.2f}")
+            except Exception as e:
+                print(f"❌ Error: {e}")
         elif choice == "3":
+            summary = reports.get_monthly_summary()
+            if not summary:
+                print("No data available.")
+            else:
+                print("\n--- Monthly Summary ---")
+                for month, total in summary:
+                    print(f"{month}: ${total:.2f}")
+        elif choice == "0":
             break
         else:
             print("Invalid choice.")
+
+def main():
+    while True:
+        print_menu()
+        choice = input("Choose an option: ")
+        if choice == "1":
+            handle_add()
+        elif choice == "2":
+            handle_list()
+        elif choice == "3":
+            handle_update()
+        elif choice == "4":
+            handle_delete()
+        elif choice == "5":
+            handle_reports()
+        elif choice == "0":
+            print("Goodbye! 👋")
+            break
+        else:
+            print("Invalid choice.")
+
+if __name__ == "__main__":
+    main()
