@@ -1,4 +1,6 @@
 from backend import crud, reports
+from tabulate import tabulate
+
 
 def print_menu():
     print("\n=== Expense Tracker ===")
@@ -32,9 +34,14 @@ def handle_list():
     if not expenses:
         print("No expenses found.")
         return
+    #print("\n--- Expenses ---")
+    #for exp in expenses:
+    #    print(f"[{exp[0]}] {exp[1]} | {exp[2]} | ${exp[3]:.2f} | {exp[4]}")
+
+    headers = ["ID", "Category", "Date", "Value", "Description"]
+    table = [[exp[0], exp[1], exp[2], f"${exp[3]:.2f}", exp[4]] for exp in expenses]
     print("\n--- Expenses ---")
-    for exp in expenses:
-        print(f"[{exp[0]}] {exp[1]} | {exp[2]} | ${exp[3]:.2f} | {exp[4]}")
+    print(tabulate(table, headers, tablefmt="grid"))
 
 def handle_update():
     try:
@@ -64,7 +71,12 @@ def handle_reports():
             category = input("Category: ")
             try:
                 total = reports.get_total_by_category(category)
-                print(f"Total for {category}: ${total:.2f}")
+                #print(f"Total for {category}: ${total:.2f}")
+
+                #format them with tabulate if desired
+                print(tabulate([[category, f"${total:.2f}"]], headers=["Category", "Total"], tablefmt="grid"))
+
+
             except Exception as e:
                 print(f"❌ Error: {e}")
         elif choice == "2":
@@ -80,9 +92,13 @@ def handle_reports():
             if not summary:
                 print("No data available.")
             else:
+                #print("\n--- Monthly Summary ---")
+                #for month, total in summary:
+                #    print(f"{month}: ${total:.2f}")
+                headers = ["Month", "Total"]
+                table = [[month, f"${total:.2f}"] for month, total in summary]
                 print("\n--- Monthly Summary ---")
-                for month, total in summary:
-                    print(f"{month}: ${total:.2f}")
+                print(tabulate(table, headers, tablefmt="grid"))
         elif choice == "0":
             break
         else:
