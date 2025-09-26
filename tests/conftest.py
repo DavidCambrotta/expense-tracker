@@ -1,6 +1,7 @@
 import pytest
 from backend import database
 
+
 @pytest.fixture(autouse=True)
 def reset_db(tmp_path, monkeypatch):
     """Reset DB before each test using a temporary SQLite file."""
