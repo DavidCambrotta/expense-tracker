@@ -1,12 +1,20 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
-def validate_date(date_str: str) -> bool:
-    """Check if date is in YYYY-MM-DD format."""
+def validate_date(date_str):
     try:
-        datetime.strptime(date_str, "%Y-%m-%d")
-        return True
+        dt = datetime.strptime(date_str, "%Y-%m-%d").date()
     except ValueError:
-        return False
+        raise ValueError("Invalid date format. Please use YYYY-MM-DD.")
+    
+    today = datetime.today().date()
+    ten_years_ago = today - timedelta(days=365*10)
+
+    if dt > today:
+        raise ValueError("Date cannot be in the future.")
+    if dt < ten_years_ago:
+        raise ValueError("Date cannot be older than 10 years.")
+    
+    return True
 
 def validate_value(value) -> bool:
     """Check if value is a number >= 0."""
