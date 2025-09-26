@@ -6,7 +6,9 @@ def add_expense(category, date, value, notes=""):
         raise ValueError("❌ Invalid date format. Use YYYY-MM-DD.")
     if not validate_value(value):
         raise ValueError("❌ Value must be a number >= 0.")
-
+    
+    validate_date(date)
+    value = validate_value(value)
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
@@ -32,6 +34,8 @@ def update_expense(expense_id, category, date, value, notes=""):
     if not validate_value(value):
         raise ValueError("❌ Value must be a number >= 0.")
 
+    validate_date(date)
+    value = validate_value(value)
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute(

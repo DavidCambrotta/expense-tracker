@@ -8,10 +8,15 @@ def validate_date(date_str: str) -> bool:
     except ValueError:
         return False
 
-def validate_value(value) -> bool:
-    """Check if value is a number >= 0."""
+def validate_value(value):
+    """Convert value to float, accept both 12.1 and 12,1 formats."""
+    if isinstance(value, str):
+        # Replace comma with dot
+        value = value.replace(",", ".")
     try:
         val = float(value)
-        return val >= 0
-    except (ValueError, TypeError):
-        return False
+    except ValueError:
+        raise ValueError("Invalid value. Must be a number.")
+    if val <= 0:
+        raise ValueError("Value must be positive.")
+    return val
