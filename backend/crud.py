@@ -8,13 +8,15 @@ def add_expense(category, date, value, notes=""):
         raise ValueError("❌ Value must be a number >= 0.")
 
     conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute(
+    cur = conn.cursor()
+    cur.execute(
         "INSERT INTO expenses (category, date, value, notes) VALUES (?, ?, ?, ?)",
-        (category, date, float(value), notes)
+        (category, date, value, notes)
     )
+    exp_id = cur.lastrowid
     conn.commit()
     conn.close()
+    return exp_id
 
 def get_expenses():
     conn = get_connection()
