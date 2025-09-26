@@ -8,6 +8,3 @@ def reset_db(tmp_path, monkeypatch):
     monkeypatch.setattr(database, "DB_NAME", str(test_db))
     database.init_db()
     yield
-
-
-#test

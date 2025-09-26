@@ -62,8 +62,6 @@ def test_monthly_summary():
     assert dict_summary[this_month] >= 50.0
     assert dict_summary[last_month] >= 15.0
 
-#test
-
 def test_invalid_value():
     with pytest.raises(ValueError, match="(?i)(value|amount|positive)"):
         crud.add_expense("Food", TODAY_STR, -5, "Bad value")
