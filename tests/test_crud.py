@@ -70,6 +70,7 @@ def test_delete_nonexistent():
     with pytest.raises(LookupError, match="No expense"):
         crud.delete_expense(999999)
 
+
 def test_update_nonexistent():
     with pytest.raises(LookupError, match="No expense"):
         crud.update_expense(999999, "Food", TODAY_STR, 10, "Test")
