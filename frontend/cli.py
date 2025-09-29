@@ -4,6 +4,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from backend import crud, reports
 from tabulate import tabulate
 from colorama import Fore, Style, init
+from backend.validation import CATEGORIES
 
 init(autoreset=True)
 
@@ -24,12 +25,32 @@ def print_reports_menu():
     print("0. Back")
 
 def handle_add():
-    category = input("Category: ")
+    print("Choose main category:")
+    for i, main_cat in enumerate(CATEGORIES, start=1):
+        print(f"{i}. {main_cat}")
+    main_choice = int(input("Select number: "))
+    main_cat = list(CATEGORIES.keys())[main_choice - 1]
+
+    subs = CATEGORIES[main_cat]
+    sub_cat = None
+    if subs:
+        options = []
+        for cat, sublist in subs.items():
+            if sublist is None:
+                options.append(cat)
+            else:
+                options.extend(sublist)
+        print(f"Choose subcategory for {main_cat}:")
+        for i, sub in enumerate(options, start=1):
+            print(f"{i}. {sub}")
+        sub_choice = int(input("Select number: "))
+        sub_cat = options[sub_choice - 1]
+    
     date = input("Date (YYYY-MM-DD): ")
     value = input("Value: ")
     description = input("Description (optional): ")
     try:
-        crud.add_expense(category, date, value, description)
+        crud.add_expense(main_cat, sub_cat, date, value, description)
         print(Fore.GREEN + "✅ Expense added successfully.")
     except Exception as e:
         print(Fore.RED + f"❌ Error: {e}")
