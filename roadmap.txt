@@ -129,3 +129,8 @@ Expense Tracker App – Roadmap
     Sync with cloud DB or API
 
     Mobile version (Kivy or React Native + API)
+
+10. Improvements
+    Improve data input - only less than 10 years ago, cannot be a future date
+    Improve value input - float accept , and .
+    Category is now fixed - choose in Menu
