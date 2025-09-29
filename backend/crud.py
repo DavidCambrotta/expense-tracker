@@ -2,7 +2,7 @@ from .database import get_connection
 from .validators import validate_date, validate_value
 from .validation import validate_category
 
-def add_expense(category, date, value, notes=""):
+def add_expense(main_cat, sub_cat, date, value, notes):
     #if not validate_date(date):
     #    raise ValueError("❌ Invalid date format. Use YYYY-MM-DD.")
     #if not validate_value(value):
@@ -47,7 +47,7 @@ def update_expense(expense_id, category, date, value, notes=""):
         SET main_category = ?, sub_category = ?, date = ?, value = ?, notes = ?
         WHERE id = ?
     """, (main_cat, sub_cat, date, value, notes, expense_id))
-    
+
     if cursor.rowcount == 0:
         conn.close()
         raise LookupError(f"❌ No expense found with ID {expense_id}")

@@ -48,9 +48,9 @@ def handle_add():
     
     date = input("Date (YYYY-MM-DD): ")
     value = input("Value: ")
-    description = input("Description (optional): ")
+    notes = input("Notes (optional): ")
     try:
-        crud.add_expense(main_cat, sub_cat, date, value, description)
+        crud.add_expense(main_cat, sub_cat, date, value, notes)
         print(Fore.GREEN + "✅ Expense added successfully.")
     except Exception as e:
         print(Fore.RED + f"❌ Error: {e}")
@@ -67,7 +67,7 @@ def handle_list():
         category_display = f"{main_cat}" + (f" > {sub_cat}" if sub_cat else "")
         print(f"[{exp_id}] {category_display} | {date} | {value:.2f} | {notes}")
 
-    headers = ["ID", "Category", "Date", "Value", "Description"]
+    headers = ["ID", "Category", "Date", "Value", "Notes"]
     table = [[exp[0], exp[1], exp[2], f"${exp[3]:.2f}", exp[4]] for exp in expenses]
     print("\n--- Expenses ---")
     print(tabulate(table, headers, tablefmt="grid"))
@@ -78,8 +78,8 @@ def handle_update():
         category = input("New category: ")
         date = input("New date (YYYY-MM-DD): ")
         value = input("New value: ")
-        description = input("New description (optional): ")
-        crud.update_expense(expense_id, category, date, value, description)
+        notes = input("New notes (optional): ")
+        crud.update_expense(expense_id, category, date, value, notes)
         print(Fore.GREEN + "✅ Expense updated successfully.")
     except Exception as e:
         print(Fore.RED + f"❌ Error: {e}")
