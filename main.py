@@ -1,4 +1,4 @@
-from backend.models import init_db
+from backend.database import init_db
 from frontend.cli import menu
 
 if __name__ == "__main__":
