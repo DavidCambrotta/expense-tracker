@@ -2,7 +2,7 @@ from .database import get_connection
 from .validators import validate_date, validate_value
 from .validation import validate_category
 
-def add_expense(main_cat, sub_cat, date, value, notes):
+def add_expense(main_cat, sub_cat, date, value, notes=None):
     #if not validate_date(date):
     #    raise ValueError("❌ Invalid date format. Use YYYY-MM-DD.")
     #if not validate_value(value):
@@ -25,11 +25,12 @@ def add_expense(main_cat, sub_cat, date, value, notes):
 
 def get_expenses():
     conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM expenses")
-    rows = cursor.fetchall()
+    cur = conn.cursor()
+    cur.execute("SELECT id, main_category, sub_category, date, value, notes FROM expenses")
+    rows = cur.fetchall()
     conn.close()
-    return rows
+    # convert value to float
+    return [(r[0], r[1], r[2], r[3], float(r[4]), r[5]) for r in rows]
 
 def update_expense(expense_id, category, date, value, notes=""):
     #if not validate_date(date):
