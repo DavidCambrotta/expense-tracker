@@ -43,7 +43,11 @@ def update_expense(expense_id, main_cat, sub_cat, date, value, notes=""):
 def get_expenses():
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("SELECT id, main_category, sub_category, date, value, notes FROM expenses")
+    cur.execute("""
+        SELECT id, main_category, sub_category, date, value, notes
+        FROM expenses
+        ORDER BY date DESC, id DESC
+    """)
     rows = cur.fetchall()
     conn.close()
     # correct order: id, main_cat, sub_cat, date, value, notes
