@@ -13,7 +13,8 @@ def init_db():
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS expenses (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            category TEXT NOT NULL,
+            main_category TEXT NOT NULL,
+            sub_category TEXT,
             date TEXT NOT NULL,
             value REAL NOT NULL,
             notes TEXT

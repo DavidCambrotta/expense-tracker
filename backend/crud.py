@@ -1,52 +1,53 @@
 from .database import get_connection
+from .validation import validate_category, CATEGORIES
 from .validators import validate_date, validate_value
 
-def add_expense(category, date, value, notes=""):
-    if not validate_date(date):
-        raise ValueError("❌ Invalid date format. Use YYYY-MM-DD.")
-    if not validate_value(value):
-        raise ValueError("❌ Value must be a number >= 0.")
-    
+def add_expense(main_cat, sub_cat, date, value, notes=""):
+    # Validate category/subcategory first (will raise if invalid)
+    main_cat, sub_cat = validate_category(main_cat, sub_cat)
+
+    # Validate date & value
     validate_date(date)
     value = validate_value(value)
+
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
-        "INSERT INTO expenses (category, date, value, notes) VALUES (?, ?, ?, ?)",
-        (category, date, value, notes)
+        "INSERT INTO expenses (main_category, sub_category, date, value, notes) VALUES (?, ?, ?, ?, ?)",
+        (main_cat, sub_cat, date, value, notes)
     )
     exp_id = cur.lastrowid
     conn.commit()
     conn.close()
     return exp_id
 
-def get_expenses():
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM expenses")
-    rows = cursor.fetchall()
-    conn.close()
-    return rows
-
-def update_expense(expense_id, category, date, value, notes=""):
-    if not validate_date(date):
-        raise ValueError("❌ Invalid date format. Use YYYY-MM-DD.")
-    if not validate_value(value):
-        raise ValueError("❌ Value must be a number >= 0.")
-
+def update_expense(expense_id, main_cat, sub_cat, date, value, notes=""):
+    main_cat, sub_cat = validate_category(main_cat, sub_cat)
     validate_date(date)
     value = validate_value(value)
+
     conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute(
-        "UPDATE expenses SET category=?, date=?, value=?, notes=? WHERE id=?",
-        (category, date, float(value), notes, expense_id)
-    )
-    if cursor.rowcount == 0:
+    cur = conn.cursor()
+    cur.execute("""
+        UPDATE expenses
+        SET main_category = ?, sub_category = ?, date = ?, value = ?, notes = ?
+        WHERE id = ?
+    """, (main_cat, sub_cat, date, value, notes, expense_id))
+
+    if cur.rowcount == 0:
         conn.close()
         raise LookupError(f"❌ No expense found with ID {expense_id}")
     conn.commit()
     conn.close()
+
+def get_expenses():
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id, main_category, sub_category, date, value, notes FROM expenses")
+    rows = cur.fetchall()
+    conn.close()
+    # correct order: id, main_cat, sub_cat, date, value, notes
+    return [(r[0], r[1], r[2], r[3], float(r[4]), r[5]) for r in rows]
 
 def delete_expense(expense_id):
     conn = get_connection()

@@ -10,7 +10,7 @@ LAST_MONTH_STR = LAST_MONTH.strftime("%Y-%m-%d")
 
 
 def test_add_and_get_expense():
-    exp_id = crud.add_expense("Food", TODAY_STR, 12.5, "Lunch")
+    exp_id = crud.add_expense("Daily Expenses", "Groceries", TODAY_STR, 12.5, "Test")
     assert exp_id is not None
     expenses = crud.get_expenses()
     assert any(exp[0] == exp_id for exp in expenses)

@@ -4,6 +4,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from backend import crud, reports
 from tabulate import tabulate
 from colorama import Fore, Style, init
+from backend.validation import CATEGORIES, validate_category
 
 init(autoreset=True)
 
@@ -23,28 +24,82 @@ def print_reports_menu():
     print("3. Monthly summary")
     print("0. Back")
 
+def pick_main_and_sub():
+    # choose main category
+    main_keys = list(CATEGORIES.keys())
+    while True:
+        print("Choose main category:")
+        for i, key in enumerate(main_keys, start=1):
+            print(f"{i}. {key}")
+        try:
+            main_choice = int(input("Select number: ").strip())
+            if not (1 <= main_choice <= len(main_keys)):
+                raise ValueError()
+        except ValueError:
+            print(Fore.RED + "Invalid selection. Please enter a valid number.")
+            continue
+        main_cat = main_keys[main_choice - 1]
+        break
+
+    # build flattened option list while preserving choices
+    subs = CATEGORIES[main_cat]  # dict
+    options = []
+    for subkey, subval in subs.items():
+        if subval is None:
+            # top-level single option (e.g., "Groceries", "Health")
+            options.append(subkey)
+        else:
+            # flatten nested list (e.g., "Food", "Drinks", ...)
+            options.extend(subval)
+
+    sub_cat = None
+    if options:
+        while True:
+            print(f"Choose subcategory for {main_cat}:")
+            for i, opt in enumerate(options, start=1):
+                print(f"{i}. {opt}")
+            try:
+                choice = int(input("Select number: ").strip())
+                if not (1 <= choice <= len(options)):
+                    raise ValueError()
+            except ValueError:
+                print(Fore.RED + "Invalid selection. Please enter a valid number.")
+                continue
+            sub_cat = options[choice - 1]
+            break
+
+    return main_cat, sub_cat
+
 def handle_add():
-    category = input("Category: ")
-    date = input("Date (YYYY-MM-DD): ")
-    value = input("Value: ")
-    description = input("Description (optional): ")
     try:
-        crud.add_expense(category, date, value, description)
-        print(Fore.GREEN + "✅ Expense added successfully.")
+        main_cat, sub_cat = pick_main_and_sub()
+
+        date = input("Date (YYYY-MM-DD): ").strip()
+        # do not normalize date here; backend will validate (but you may strip slashes)
+        value_input = input("Value: ").strip().replace(",", ".")
+        notes = input("Notes (optional): ").strip()
+
+        exp_id = crud.add_expense(main_cat, sub_cat, date, value_input, notes)
+        print(Fore.GREEN + f"✅ Expense added successfully (ID {exp_id}).")
     except Exception as e:
         print(Fore.RED + f"❌ Error: {e}")
 
 def handle_list():
     expenses = crud.get_expenses()
     if not expenses:
-        print("No expenses found.")
+        print("⚠️ No expenses found.")
         return
-    #print("\n--- Expenses ---")
-    #for exp in expenses:
-    #    print(f"[{exp[0]}] {exp[1]} | {exp[2]} | ${exp[3]:.2f} | {exp[4]}")
 
-    headers = ["ID", "Category", "Date", "Value", "Description"]
-    table = [[exp[0], exp[1], exp[2], f"${exp[3]:.2f}", exp[4]] for exp in expenses]
+    print("\n=== Expense List ===")
+    for exp in expenses:
+        exp_id, main_cat, sub_cat, date, value, notes = exp
+        category_display = f"{main_cat}" + (f" > {sub_cat}" if sub_cat else "")
+        #print(f"[{exp_id}] {category_display} | {date} | ${value} | {notes}") # -> debug
+        value_float = float(value)  # 👈 convert here
+        print(f"[{exp_id}] {category_display} | {date} | ${value_float:.2f} | {notes}")
+
+    headers = ["ID", "Category","Sub Category", "Date", "Value", "Notes"]
+    table = [[exp[0], exp[1], exp[2], exp[3], f"${exp[4]:.2f}", exp[5]] for exp in expenses]
     print("\n--- Expenses ---")
     print(tabulate(table, headers, tablefmt="grid"))
 
@@ -54,8 +109,8 @@ def handle_update():
         category = input("New category: ")
         date = input("New date (YYYY-MM-DD): ")
         value = input("New value: ")
-        description = input("New description (optional): ")
-        crud.update_expense(expense_id, category, date, value, description)
+        notes = input("New notes (optional): ")
+        crud.update_expense(expense_id, category, date, value, notes)
         print(Fore.GREEN + "✅ Expense updated successfully.")
     except Exception as e:
         print(Fore.RED + f"❌ Error: {e}")
