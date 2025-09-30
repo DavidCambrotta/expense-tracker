@@ -129,25 +129,43 @@ def handle_reports():
         choice = input("Choose report: ")
         if choice == "1":
             try:
-                categories = reports.list_all_categories()
-                if not categories:
-                    print("No expenses yet.")
-                    return
+                print("\n--- Reports ---")
+                print("1. Show all totals grouped by category")
+                print("2. Pick one category")
+                choice = input("Choose an option: ").strip()
 
-                print("Choose a category:")
-                for idx, (main, sub) in enumerate(categories, start=1):
-                    label = f"{main} > {sub}" if sub else main
-                    print(f"{idx}. {label}")
+                if choice == "1":
+                    rows = reports.get_totals_grouped()
+                    if not rows:
+                        print("No expenses yet.")
+                        return
 
-                choice = int(input("Select number: "))
-                if 1 <= choice <= len(categories):
-                    main, sub = categories[choice - 1]
-                    total = reports.get_total_by_category(main, sub)
-                    label = f"{main} > {sub}" if sub else main
-                    print(f"\n💰 Total for {label}: ${total:.2f}")
-                else:
-                    print("❌ Invalid choice.")
+                    table = []
+                    for main, sub, total in rows:
+                        label = f"{main} > {sub}" if sub else main
+                        table.append([label, f"${total:.2f}"])
 
+                    print("\n📊 Totals by Category")
+                    print(tabulate(table, headers=["Category", "Total"], tablefmt="grid"))
+                elif choice == "2":
+                    categories = reports.list_all_categories()
+                    if not categories:
+                        print("No expenses yet.")
+                        return
+
+                    print("Choose a category:")
+                    for idx, (main, sub) in enumerate(categories, start=1):
+                        label = f"{main} > {sub}" if sub else main
+                        print(f"{idx}. {label}")
+
+                    choice = int(input("Select number: "))
+                    if 1 <= choice <= len(categories):
+                        main, sub = categories[choice - 1]
+                        total = reports.get_total_by_category(main, sub)
+                        label = f"{main} > {sub}" if sub else main
+                        print(f"\n💰 Total for {label}: ${total:.2f}")
+                    else:
+                        print("❌ Invalid choice.")
 
             except Exception as e:
                 print(Fore.RED + f"❌ Error: {e}")

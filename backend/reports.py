@@ -10,6 +10,20 @@ def list_all_categories():
     conn.close()
     return categories
 
+def get_totals_grouped():
+    """Return totals grouped by main and subcategory."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT main_category, sub_category, SUM(value) as total
+        FROM expenses
+        GROUP BY main_category, sub_category
+        ORDER BY main_category, sub_category
+    """)
+    rows = cur.fetchall()
+    conn.close()
+    return rows
+    
 def get_total_by_category(main_category, sub_category=None):
     """Return total spent for a given main + optional sub category."""
     conn = get_connection()
