@@ -90,13 +90,13 @@ def handle_list():
         print("⚠️ No expenses found.")
         return
 
-    print("\n=== Expense List ===")
-    for exp in expenses:
-        exp_id, main_cat, sub_cat, date, value, notes = exp
-        category_display = f"{main_cat}" + (f" > {sub_cat}" if sub_cat else "")
-        #print(f"[{exp_id}] {category_display} | {date} | ${value} | {notes}") # -> debug
-        value_float = float(value)  # 👈 convert here
-        print(f"[{exp_id}] {category_display} | {date} | ${value_float:.2f} | {notes}")
+    #print("\n=== Expense List ===")
+    #for exp in expenses:
+    #    exp_id, main_cat, sub_cat, date, value, notes = exp
+    #    category_display = f"{main_cat}" + (f" > {sub_cat}" if sub_cat else "")
+    #    print(f"[{exp_id}] {category_display} | {date} | ${value} | {notes}") # -> debug
+    #    value_float = float(value)  # 👈 convert here
+    #    print(f"[{exp_id}] {category_display} | {date} | ${value_float:.2f} | {notes}")   
 
     headers = ["ID", "Category","Sub Category", "Date", "Value", "Notes"]
     table = [[exp[0], exp[1], exp[2], exp[3], f"${exp[4]:.2f}", exp[5]] for exp in expenses]
@@ -128,13 +128,25 @@ def handle_reports():
         print_reports_menu()
         choice = input("Choose report: ")
         if choice == "1":
-            category = input("Category: ")
             try:
-                total = reports.get_total_by_category(category)
-                #print(f"Total for {category}: ${total:.2f}")
+                categories = reports.list_all_categories()
+                if not categories:
+                    print("No expenses yet.")
+                    return
 
-                #format them with tabulate if desired
-                print(tabulate([[category, f"${total:.2f}"]], headers=["Category", "Total"], tablefmt="grid"))
+                print("Choose a category:")
+                for idx, (main, sub) in enumerate(categories, start=1):
+                    label = f"{main} > {sub}" if sub else main
+                    print(f"{idx}. {label}")
+
+                choice = int(input("Select number: "))
+                if 1 <= choice <= len(categories):
+                    main, sub = categories[choice - 1]
+                    total = reports.get_total_by_category(main, sub)
+                    label = f"{main} > {sub}" if sub else main
+                    print(f"\n💰 Total for {label}: ${total:.2f}")
+                else:
+                    print("❌ Invalid choice.")
 
 
             except Exception as e:
