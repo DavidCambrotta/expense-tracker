@@ -4,7 +4,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from backend import crud, reports
 from tabulate import tabulate
 from colorama import Fore, Style, init
-from backend.validation import CATEGORIES
+from backend.validation import CATEGORIES, validate_category
 
 init(autoreset=True)
 
@@ -24,34 +24,63 @@ def print_reports_menu():
     print("3. Monthly summary")
     print("0. Back")
 
-def handle_add():
-    print("Choose main category:")
-    for i, main_cat in enumerate(CATEGORIES, start=1):
-        print(f"{i}. {main_cat}")
-    main_choice = int(input("Select number: "))
-    main_cat = list(CATEGORIES.keys())[main_choice - 1]
+def pick_main_and_sub():
+    # choose main category
+    main_keys = list(CATEGORIES.keys())
+    while True:
+        print("Choose main category:")
+        for i, key in enumerate(main_keys, start=1):
+            print(f"{i}. {key}")
+        try:
+            main_choice = int(input("Select number: ").strip())
+            if not (1 <= main_choice <= len(main_keys)):
+                raise ValueError()
+        except ValueError:
+            print(Fore.RED + "Invalid selection. Please enter a valid number.")
+            continue
+        main_cat = main_keys[main_choice - 1]
+        break
 
-    subs = CATEGORIES[main_cat]
+    # build flattened option list while preserving choices
+    subs = CATEGORIES[main_cat]  # dict
+    options = []
+    for subkey, subval in subs.items():
+        if subval is None:
+            # top-level single option (e.g., "Groceries", "Health")
+            options.append(subkey)
+        else:
+            # flatten nested list (e.g., "Food", "Drinks", ...)
+            options.extend(subval)
+
     sub_cat = None
-    if subs:
-        options = []
-        for cat, sublist in subs.items():
-            if sublist is None:
-                options.append(cat)
-            else:
-                options.extend(sublist)
-        print(f"Choose subcategory for {main_cat}:")
-        for i, sub in enumerate(options, start=1):
-            print(f"{i}. {sub}")
-        sub_choice = int(input("Select number: "))
-        sub_cat = options[sub_choice - 1]
-    
-    date = input("Date (YYYY-MM-DD): ")
-    value = input("Value: ")
-    notes = input("Notes (optional): ")
+    if options:
+        while True:
+            print(f"Choose subcategory for {main_cat}:")
+            for i, opt in enumerate(options, start=1):
+                print(f"{i}. {opt}")
+            try:
+                choice = int(input("Select number: ").strip())
+                if not (1 <= choice <= len(options)):
+                    raise ValueError()
+            except ValueError:
+                print(Fore.RED + "Invalid selection. Please enter a valid number.")
+                continue
+            sub_cat = options[choice - 1]
+            break
+
+    return main_cat, sub_cat
+
+def handle_add():
     try:
-        crud.add_expense(main_cat, sub_cat, date, value, notes)
-        print(Fore.GREEN + "✅ Expense added successfully.")
+        main_cat, sub_cat = pick_main_and_sub()
+
+        date = input("Date (YYYY-MM-DD): ").strip()
+        # do not normalize date here; backend will validate (but you may strip slashes)
+        value_input = input("Value: ").strip().replace(",", ".")
+        notes = input("Notes (optional): ").strip()
+
+        exp_id = crud.add_expense(main_cat, sub_cat, date, value_input, notes)
+        print(Fore.GREEN + f"✅ Expense added successfully (ID {exp_id}).")
     except Exception as e:
         print(Fore.RED + f"❌ Error: {e}")
 
