@@ -14,6 +14,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS expenses (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             main_category TEXT NOT NULL,
+            mid_category TEXT,
             sub_category TEXT,
             date TEXT NOT NULL,
             value REAL NOT NULL,
