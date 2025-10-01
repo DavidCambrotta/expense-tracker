@@ -5,7 +5,7 @@ CATEGORIES = {
     "Daily Expenses": {
         "Groceries": None,
         "Going Out": ["Food", "Drinks", "Others"],
-        "Travel": ["Gasoline", "Train/Bus", "Vacation"],
+        "Travel": ["Gasoline", "Transport", "Vacation"],
         "Health": None,
         "Others": ["Cloths", "Sports", "Others"]
     },
