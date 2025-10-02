@@ -42,44 +42,62 @@ def pick_main_and_sub():
         break
 
     # build flattened option list while preserving choices
-    subs = CATEGORIES[main_cat]  # dict
-    options = []
-    for subkey, subval in subs.items():
-        if subval is None:
+    #subs = CATEGORIES[main_cat]  # dict
+    #options = []
+    #for subkey, subval in subs.items():
+    #    if subval is None:
             # top-level single option (e.g., "Groceries", "Health")
-            options.append(subkey)
-        else:
-            # flatten nested list (e.g., "Food", "Drinks", ...)
-            options.extend(subval)
+    #        options.append(subkey)
+    #    else:
+    #        # flatten nested list (e.g., "Food", "Drinks", ...)
+    #        options.extend(subval)
 
+    mid_keys = list(CATEGORIES[main_cat].keys())
+    while True:
+        print(f"Choose mid category for {main_cat}:")
+        for i, mid in enumerate(mid_keys, start=1):
+            print(f"{i}. {mid}")
+        try:
+            mid_choice = int(input("Select number: ").strip())
+            if not (1 <= mid_choice <= len(mid_keys)):
+                raise ValueError()
+        except ValueError:
+            print(Fore.RED + "Invalid selection. Please enter a valid number.")
+            continue
+        mid_cat = mid_keys[mid_choice -1]
+        break
+
+    # Step 3: pick subcategory if exists
     sub_cat = None
-    if options:
+    sub_keys = CATEGORIES[main_cat][mid_cat]
+    if sub_keys is not None:  # only if list of subcategories
         while True:
-            print(f"Choose subcategory for {main_cat}:")
-            for i, opt in enumerate(options, start=1):
-                print(f"{i}. {opt}")
+            print(f"Choose subcategory for {main_cat}> {mid_cat}:")
+            for i, sub in enumerate(sub_keys, start=1):
+                print(f"{i}. {sub}")
             try:
-                choice = int(input("Select number: ").strip())
-                if not (1 <= choice <= len(options)):
+                sub_choice = int(input("Select number: ").strip())
+                if not (1 <= sub_choice <= len(sub_keys)):
                     raise ValueError()
             except ValueError:
                 print(Fore.RED + "Invalid selection. Please enter a valid number.")
                 continue
-            sub_cat = options[choice - 1]
+            sub_cat = sub_keys[sub_choice - 1]
             break
 
-    return main_cat, sub_cat
+    return main_cat, mid_cat, sub_cat
 
 def handle_add():
     try:
-        main_cat, sub_cat = pick_main_and_sub()
+        main_cat, mid_cat, sub_cat = pick_main_and_sub()
 
         date = input("Date (YYYY-MM-DD): ").strip()
         # do not normalize date here; backend will validate (but you may strip slashes)
         value_input = input("Value: ").strip().replace(",", ".")
         notes = input("Notes (optional): ").strip()
 
-        exp_id = crud.add_expense(main_cat, sub_cat, date, value_input, notes)
+        print("exp_id = ", main_cat, mid_cat, sub_cat, date, value_input, notes)
+        exp_id = crud.add_expense(main_cat, mid_cat, sub_cat, date, value_input, notes)
         print(Fore.GREEN + f"✅ Expense added successfully (ID {exp_id}).")
     except Exception as e:
         print(Fore.RED + f"❌ Error: {e}")
@@ -98,8 +116,8 @@ def handle_list():
     #    value_float = float(value)  # 👈 convert here
     #    print(f"[{exp_id}] {category_display} | {date} | ${value_float:.2f} | {notes}")   
 
-    headers = ["ID", "Category","Sub Category", "Date", "Value", "Notes"]
-    table = [[exp[0], exp[1], exp[2], exp[3], f"${exp[4]:.2f}", exp[5]] for exp in expenses]
+    headers = ["ID", "Category", "Mid Category", "Sub Category", "Date", "Value", "Notes"]
+    table = [[exp[0], exp[1], exp[2], exp[3], exp[4], f"${exp[5]:.2f}", exp[6]] for exp in expenses]
     print("\n--- Expenses ---")
     print(tabulate(table, headers, tablefmt="grid"))
 
