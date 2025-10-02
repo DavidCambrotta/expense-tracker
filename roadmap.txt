@@ -134,3 +134,4 @@ Expense Tracker App – Roadmap
     Improve data input - only less than 10 years ago, cannot be a future date
     Improve value input - float accept , and .
     Category is now fixed - choose in Menu
+    Category now have 3 arguments: Main, mid and sub
