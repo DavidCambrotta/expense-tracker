@@ -21,7 +21,7 @@ def test_update_expense():
     crud.update_expense(exp_id,"Daily Expenses", "Travel", "Transport", TODAY_STR, 7.0, "Bus updated")
     expenses = crud.get_expenses()
     updated = [exp for exp in expenses if exp[0] == exp_id][0]
-    assert updated[4] == 7.0
+    assert updated[5] == 7.0
 
 
 def test_delete_expense():

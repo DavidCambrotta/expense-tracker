@@ -143,74 +143,41 @@ def handle_delete():
 
 def handle_reports():
     while True:
-        print_reports_menu()
-        choice = input("Choose report: ")
-        if choice == "1":
-            try:
-                print("\n--- Reports ---")
-                print("1. Show all totals grouped by category")
-                print("2. Pick one category")
-                choice = input("Choose an option: ").strip()
+        print("\n=== Reports ===")
+        print("1. Show totals by Main Category")
+        print("2. Show totals by Main + Mid Category")
+        print("3. Show totals by Full Category Path")
+        print("4. Pick a Specific Category")
+        print("0. Back")
 
-                if choice == "1":
-                    rows = reports.get_totals_grouped()
-                    if not rows:
-                        print("No expenses yet.")
-                        return
-
-                    table = []
-                    for main, sub, total in rows:
-                        label = f"{main} > {sub}" if sub else main
-                        table.append([label, f"${total:.2f}"])
-
-                    print("\n📊 Totals by Category")
-                    print(tabulate(table, headers=["Category", "Total"], tablefmt="grid"))
-                elif choice == "2":
-                    categories = reports.list_all_categories()
-                    if not categories:
-                        print("No expenses yet.")
-                        return
-
-                    print("Choose a category:")
-                    for idx, (main, sub) in enumerate(categories, start=1):
-                        label = f"{main} > {sub}" if sub else main
-                        print(f"{idx}. {label}")
-
-                    choice = int(input("Select number: "))
-                    if 1 <= choice <= len(categories):
-                        main, sub = categories[choice - 1]
-                        total = reports.get_total_by_category(main, sub)
-                        label = f"{main} > {sub}" if sub else main
-                        print(f"\n💰 Total for {label}: ${total:.2f}")
-                    else:
-                        print("❌ Invalid choice.")
-
-            except Exception as e:
-                print(Fore.RED + f"❌ Error: {e}")
-        elif choice == "2":
-            start = input("Start date (YYYY-MM-DD): ")
-            end = input("End date (YYYY-MM-DD): ")
-            try:
-                total = reports.get_total_by_date_range(start, end)
-                print(Fore.YELLOW + f"Total from {start} to {end}: ${total:.2f}")
-            except Exception as e:
-                print(Fore.RED + f"❌ Error: {e}")
-        elif choice == "3":
-            summary = reports.get_monthly_summary()
-            if not summary:
-                print("No data available.")
-            else:
-                #print("\n--- Monthly Summary ---")
-                #for month, total in summary:
-                #    print(f"{month}: ${total:.2f}")
-                headers = ["Month", "Total"]
-                table = [[month, f"${total:.2f}"] for month, total in summary]
-                print("\n--- Monthly Summary ---")
-                print(tabulate(table, headers, tablefmt="grid"))
-        elif choice == "0":
+        choice = input("Choose option: ").strip()
+        if choice == "0":
             break
+
+        elif choice == "1":
+            rows = reports.get_totals_grouped("main")
+            table = [[r[0], f"${r[1]:.2f}"] for r in rows]
+            print(tabulate(table, headers=["Main Category", "Total"], tablefmt="grid"))
+
+        elif choice == "2":
+            rows = reports.get_totals_grouped("mid")
+            table = [[r[0], r[1], f"${r[2]:.2f}"] for r in rows]
+            print(tabulate(table, headers=["Main", "Mid", "Total"], tablefmt="grid"))
+
+        elif choice == "3":
+            rows = reports.get_totals_grouped("sub")
+            table = [[r[0], r[1], r[2], f"${r[3]:.2f}"] for r in rows]
+            print(tabulate(table, headers=["Main", "Mid", "Sub", "Total"], tablefmt="grid"))
+
+        elif choice == "4":
+            main = input("Enter Main Category: ").strip()
+            mid = input("Enter Mid Category (optional): ").strip() or None
+            sub = input("Enter Sub Category (optional): ").strip() or None
+            total = reports.get_total_by_category(main, mid, sub)
+            print(Fore.GREEN + f"Total for {main} {mid or ''} {sub or ''} = ${total:.2f}")
+
         else:
-            print("Invalid choice.")
+            print(Fore.RED + "❌ Invalid choice. Try again.")
 
 def menu():
     while True:

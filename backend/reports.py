@@ -24,25 +24,35 @@ def get_totals_grouped():
     conn.close()
     return rows
     
-def get_total_by_category(main_category, sub_category=None):
-    """Return total spent for a given main + optional sub category."""
+def get_total_by_category(main_cat, mid_cat=None, sub_cat=None):
+    """
+    Return total expenses for a given category path.
+    - main_cat is required
+    - mid_cat optional
+    - sub_cat optional
+    """
     conn = get_connection()
     cur = conn.cursor()
-    if sub_category:
-        cur.execute("""
-            SELECT SUM(value) 
-            FROM expenses 
-            WHERE main_category=? AND sub_category=?
-        """, (main_category, sub_category))
+
+    if mid_cat and sub_cat:
+        cur.execute(
+            "SELECT SUM(value) FROM expenses WHERE main_category=? AND mid_category=? AND sub_category=?",
+            (main_cat, mid_cat, sub_cat),
+        )
+    elif mid_cat:
+        cur.execute(
+            "SELECT SUM(value) FROM expenses WHERE main_category=? AND mid_category=?",
+            (main_cat, mid_cat),
+        )
     else:
-        cur.execute("""
-            SELECT SUM(value) 
-            FROM expenses 
-            WHERE main_category=?
-        """, (main_category,))
+        cur.execute(
+            "SELECT SUM(value) FROM expenses WHERE main_category=?",
+            (main_cat,),
+        )
+
     total = cur.fetchone()[0]
     conn.close()
-    return total or 0
+    return total or 0.0
 
 def get_total_by_date_range(start_date, end_date):
     conn = get_connection()
@@ -57,18 +67,49 @@ def get_total_by_date_range(start_date, end_date):
 
 def get_monthly_summary():
     """
-    Returns a list of tuples (month, total) where:
-    - month is in YYYY-MM format
-    - total is the sum of all expenses for that month
+    Returns a list of (YYYY-MM, total_value) for all expenses.
     """
     conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("""
+    cur = conn.cursor()
+    cur.execute(
+        """
         SELECT substr(date, 1, 7) as month, SUM(value)
         FROM expenses
         GROUP BY month
-        ORDER BY month
-    """)
-    rows = cursor.fetchall()
+        ORDER BY month DESC
+        """
+    )
+    rows = cur.fetchall()
+    conn.close()
+    return rows
+
+def get_totals_grouped(level="main"):
+    """
+    Returns totals grouped by category level:
+    - "main": totals by main_category
+    - "mid": totals by main_category + mid_category
+    - "sub": totals by full path main+mid+sub
+    """
+    conn = get_connection()
+    cur = conn.cursor()
+
+    if level == "main":
+        cur.execute(
+            "SELECT main_category, SUM(value) FROM expenses GROUP BY main_category"
+        )
+    elif level == "mid":
+        cur.execute(
+            "SELECT main_category, mid_category, SUM(value) FROM expenses "
+            "GROUP BY main_category, mid_category"
+        )
+    elif level == "sub":
+        cur.execute(
+            "SELECT main_category, mid_category, sub_category, SUM(value) FROM expenses "
+            "GROUP BY main_category, mid_category, sub_category"
+        )
+    else:
+        raise ValueError("Invalid grouping level. Use 'main', 'mid', or 'sub'.")
+
+    rows = cur.fetchall()
     conn.close()
     return rows
