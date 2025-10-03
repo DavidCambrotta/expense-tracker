@@ -124,11 +124,13 @@ def handle_list():
 def handle_update():
     try:
         expense_id = int(input("Expense ID to update: "))
-        category = input("New category: ")
+        main_category = input("New Main category: ")
+        mid_category = input("New Mid category: ")
+        sub_category = input("New Sub category: ")
         date = input("New date (YYYY-MM-DD): ")
         value = input("New value: ")
         notes = input("New notes (optional): ")
-        crud.update_expense(expense_id, category, date, value, notes)
+        crud.update_expense(expense_id, main_category, mid_category, sub_category, date, value, notes)
         print(Fore.GREEN + "✅ Expense updated successfully.")
     except Exception as e:
         print(Fore.RED + f"❌ Error: {e}")
