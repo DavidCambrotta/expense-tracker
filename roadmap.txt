@@ -135,3 +135,36 @@ Expense Tracker App – Roadmap
     Improve value input - float accept , and .
     Category is now fixed - choose in Menu
     Category now have 3 arguments: Main, mid and sub
+
+
+11. GUI
+    Decide on GUI Framework - Tkinter / PyWt6/PySide6 / Web Based (Flask + React or Streamlit)
+    Refactor backed for GUI
+    Design GUI flows
+        Main Window
+            Menu (File, Reports, Exit)
+            Sidebar (Add Expense, List Expenses, Reports)
+            Content area (changes depending on selection)
+        Add Expense Form
+            Dropdowns for Main → Mid → Sub category (like your CLI picker, but GUI combo boxes)
+            Calendar widget for date
+            Input for value
+            Notes text area
+            Submit button → calls crud.add_expense
+        List Expenses
+            Table (ID | Category Path | Date | Value | Notes)
+            Sort by date (default)
+            Buttons: Update / Delete
+        Reports
+            Totals by category (shown in table + chart)
+            Monthly summary (line chart or bar chart)
+            Export CSV/Excel Buttons
+    Add charts
+    For visuals, use:
+        Matplotlib → integrate directly in Tkinter/PyQt
+        QtCharts (if PySide6) → native charts
+        Plotly/Dash (if web-based) → interactive charts
+    Examples:
+        Pie chart → expenses by category
+        Bar chart → monthly totals
+        Line chart → expense trend over time
