@@ -1,15 +1,16 @@
 import sys, os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+# gui.py (extended)
 import sys
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout,
     QTabWidget, QLabel, QPushButton, QFormLayout,
     QComboBox, QLineEdit, QTextEdit, QTableWidget, QTableWidgetItem,
-    QDateEdit, QMessageBox
+    QDateEdit, QMessageBox, QHBoxLayout
 )
 from PySide6.QtCore import QDate
-from backend import crud, validation
+from backend import crud
 from backend.validation import CATEGORIES
 
 
@@ -17,13 +18,11 @@ class ExpenseTracker(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Expense Tracker")
-        self.setGeometry(200, 200, 800, 600)
+        self.setGeometry(200, 200, 900, 600)
 
-        # Tabs
         self.tabs = QTabWidget()
         self.setCentralWidget(self.tabs)
 
-        # Add tabs
         self.tabs.addTab(self.add_expense_tab(), "➕ Add Expense")
         self.tabs.addTab(self.list_expenses_tab(), "📋 List Expenses")
 
@@ -32,37 +31,26 @@ class ExpenseTracker(QMainWindow):
         widget = QWidget()
         layout = QFormLayout()
 
-        # Main category
         self.main_cat_box = QComboBox()
         self.main_cat_box.addItems(CATEGORIES.keys())
         self.main_cat_box.currentTextChanged.connect(self.update_mid_cat)
 
-        # Mid category
         self.mid_cat_box = QComboBox()
         self.mid_cat_box.currentTextChanged.connect(self.update_sub_cat)
 
-        # Sub category
         self.sub_cat_box = QComboBox()
-
-        # Initialize mid & sub options
         self.update_mid_cat(self.main_cat_box.currentText())
 
-        # Date
         self.date_edit = QDateEdit()
         self.date_edit.setCalendarPopup(True)
         self.date_edit.setDate(QDate.currentDate())
 
-        # Value
         self.value_input = QLineEdit()
-
-        # Notes
         self.notes_input = QTextEdit()
 
-        # Button
         submit_btn = QPushButton("Add Expense")
         submit_btn.clicked.connect(self.add_expense)
 
-        # Layout
         layout.addRow("Main Category:", self.main_cat_box)
         layout.addRow("Mid Category:", self.mid_cat_box)
         layout.addRow("Sub Category:", self.sub_cat_box)
@@ -104,6 +92,7 @@ class ExpenseTracker(QMainWindow):
             QMessageBox.information(self, "Success", f"Expense added (ID {exp_id}).")
             self.value_input.clear()
             self.notes_input.clear()
+            self.load_expenses()  # refresh list
         except Exception as e:
             QMessageBox.critical(self, "Error", str(e))
 
@@ -113,15 +102,27 @@ class ExpenseTracker(QMainWindow):
         layout = QVBoxLayout()
 
         self.table = QTableWidget()
-        self.table.setColumnCount(6)
+        self.table.setColumnCount(7)
         self.table.setHorizontalHeaderLabels(["ID", "Main", "Mid", "Sub", "Date", "Value", "Notes"])
         layout.addWidget(self.table)
 
+        # Buttons
+        btn_layout = QHBoxLayout()
         refresh_btn = QPushButton("🔄 Refresh")
         refresh_btn.clicked.connect(self.load_expenses)
-        layout.addWidget(refresh_btn)
+        btn_layout.addWidget(refresh_btn)
 
+        delete_btn = QPushButton("🗑 Delete")
+        delete_btn.clicked.connect(self.delete_expense)
+        btn_layout.addWidget(delete_btn)
+
+        update_btn = QPushButton("✏️ Update")
+        update_btn.clicked.connect(self.update_expense)
+        btn_layout.addWidget(update_btn)
+
+        layout.addLayout(btn_layout)
         widget.setLayout(layout)
+
         self.load_expenses()
         return widget
 
@@ -131,6 +132,45 @@ class ExpenseTracker(QMainWindow):
         for row, exp in enumerate(expenses):
             for col, val in enumerate(exp):
                 self.table.setItem(row, col, QTableWidgetItem(str(val)))
+
+    def get_selected_expense_id(self):
+        row = self.table.currentRow()
+        if row < 0:
+            return None
+        return int(self.table.item(row, 0).text())
+
+    def delete_expense(self):
+        exp_id = self.get_selected_expense_id()
+        if not exp_id:
+            QMessageBox.warning(self, "Warning", "Select an expense first.")
+            return
+        try:
+            crud.delete_expense(exp_id)
+            QMessageBox.information(self, "Deleted", f"Expense {exp_id} deleted.")
+            self.load_expenses()
+        except Exception as e:
+            QMessageBox.critical(self, "Error", str(e))
+
+    def update_expense(self):
+        exp_id = self.get_selected_expense_id()
+        if not exp_id:
+            QMessageBox.warning(self, "Warning", "Select an expense first.")
+            return
+
+        row = self.table.currentRow()
+        try:
+            main_cat = self.table.item(row, 1).text()
+            mid_cat = self.table.item(row, 2).text()
+            sub_cat = self.table.item(row, 3).text() or None
+            date = self.table.item(row, 4).text()
+            value = float(self.table.item(row, 5).text())
+            notes = self.table.item(row, 6).text()
+
+            crud.update_expense(exp_id, main_cat, mid_cat, sub_cat, date, value, notes)
+            QMessageBox.information(self, "Updated", f"Expense {exp_id} updated.")
+            self.load_expenses()
+        except Exception as e:
+            QMessageBox.critical(self, "Error", str(e))
 
 
 if __name__ == "__main__":
