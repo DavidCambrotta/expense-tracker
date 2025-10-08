@@ -50,7 +50,7 @@ def get_expenses():
     """)
     rows = cur.fetchall()
     conn.close()
-    # correct order: id, main_cat, sub_cat, date, value, notes
+
     return [(r[0], r[1], r[2], r[3], r[4], float(r[5]), r[6]) for r in rows]
 
 def delete_expense(expense_id):

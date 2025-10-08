@@ -114,8 +114,8 @@ def handle_list():
     #    category_display = f"{main_cat}" + (f" > {sub_cat}" if sub_cat else "")
     #    print(f"[{exp_id}] {category_display} | {date} | ${value} | {notes}") # -> debug
     #    value_float = float(value)  # 👈 convert here
-    #    print(f"[{exp_id}] {category_display} | {date} | ${value_float:.2f} | {notes}")   
-
+    #    print(f"[{exp_id}] {category_display} | {date} | ${value_float:.2f} | {notes}")
+    
     headers = ["ID", "Category", "Mid Category", "Sub Category", "Date", "Value", "Notes"]
     table = [[exp[0], exp[1], exp[2], exp[3], exp[4], f"${exp[5]:.2f}", exp[6]] for exp in expenses]
     print("\n--- Expenses ---")

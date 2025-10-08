@@ -129,9 +129,18 @@ class ExpenseTracker(QMainWindow):
     def load_expenses(self):
         expenses = crud.get_expenses()
         self.table.setRowCount(len(expenses))
+        self.table.hideColumn(0)
+        self.table.verticalHeader().setVisible(False)
         for row, exp in enumerate(expenses):
             for col, val in enumerate(exp):
-                self.table.setItem(row, col, QTableWidgetItem(str(val)))
+                display_val = "" if val is None else str(val)
+                self.table.setItem(row, col, QTableWidgetItem(display_val))
+
+                #If dont want to select and change ID
+                #item = QTableWidgetItem(display_val)
+                #if col == 0:  # ID column
+                #    item.setFlags(item.flags() & ~Qt.ItemIsEditable)
+                #self.table.setItem(row, col, item)
 
     def get_selected_expense_id(self):
         row = self.table.currentRow()
