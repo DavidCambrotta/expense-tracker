@@ -46,7 +46,7 @@ def get_expenses():
     cur.execute("""
         SELECT id, main_category, mid_category, sub_category, date, value, notes
         FROM expenses
-        ORDER BY date DESC, id DESC
+        ORDER BY date ASC
     """)
     rows = cur.fetchall()
     conn.close()

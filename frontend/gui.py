@@ -131,6 +131,8 @@ class ExpenseTracker(QMainWindow):
         self.table.setRowCount(len(expenses))
         self.table.hideColumn(0)
         self.table.verticalHeader().setVisible(False)
+        self.table.setSortingEnabled(True)
+        
         for row, exp in enumerate(expenses):
             for col, val in enumerate(exp):
                 display_val = "" if val is None else str(val)
