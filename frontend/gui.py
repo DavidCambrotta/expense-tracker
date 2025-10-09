@@ -1,8 +1,5 @@
 import sys, os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-
-# gui.py (extended)
-import sys
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout,
     QTabWidget, QLabel, QPushButton, QFormLayout,
@@ -96,21 +93,54 @@ class ExpenseTracker(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, "Error", str(e))
 
+
     # ---------------- List Expenses Tab ----------------
     def list_expenses_tab(self):
         widget = QWidget()
         layout = QVBoxLayout()
 
+        # --- Filter Controls ---
+        filter_layout = QHBoxLayout()
+        self.filter_type = QComboBox()
+        self.filter_type.addItems(["All", "By Year", "By Year and Month"])
+        self.filter_type.currentIndexChanged.connect(self.update_filter_options)
+
+        self.year_combo = QComboBox()
+        self.month_combo = QComboBox()
+        self.month_combo.addItems([f"{i:02d}" for i in range(1, 13)])
+
+        apply_btn = QPushButton("✅ Apply Filter")
+        apply_btn.clicked.connect(self.load_expenses)
+
+        clear_btn = QPushButton("🧹 Clear Filters")
+        clear_btn.clicked.connect(self.clear_filters)
+
+        filter_layout.addWidget(QLabel("Filter:"))
+        filter_layout.addWidget(self.filter_type)
+        filter_layout.addWidget(QLabel("Year:"))
+        filter_layout.addWidget(self.year_combo)
+        filter_layout.addWidget(QLabel("Month:"))
+        filter_layout.addWidget(self.month_combo)
+        filter_layout.addWidget(apply_btn)
+        filter_layout.addWidget(clear_btn)
+
+        layout.addLayout(filter_layout)
+
+        self.current_filter_label = QLabel("Showing: All expenses")
+        layout.addWidget(self.current_filter_label)
+
+        # --- Table ---
         self.table = QTableWidget()
         self.table.setColumnCount(7)
         self.table.setHorizontalHeaderLabels(["ID", "Main", "Mid", "Sub", "Date", "Value", "Notes"])
+        self.table.hideColumn(0)  # hide ID column
+        self.table.verticalHeader().setVisible(False)
+        self.table.setSortingEnabled(True)
+
         layout.addWidget(self.table)
 
-        # Buttons
+        # --- Action Buttons ---
         btn_layout = QHBoxLayout()
-        refresh_btn = QPushButton("🔄 Refresh")
-        refresh_btn.clicked.connect(self.load_expenses)
-        btn_layout.addWidget(refresh_btn)
 
         delete_btn = QPushButton("🗑 Delete")
         delete_btn.clicked.connect(self.delete_expense)
@@ -121,34 +151,104 @@ class ExpenseTracker(QMainWindow):
         btn_layout.addWidget(update_btn)
 
         layout.addLayout(btn_layout)
+
         widget.setLayout(layout)
 
+        # --- Initial setup ---
+        self.load_years()
+        self.update_filter_options()
         self.load_expenses()
+
         return widget
 
+    def update_filter_options(self):
+        """Show/hide year/month selectors depending on filter type."""
+        mode = self.filter_type.currentText()
+        if mode == "All":
+            self.year_combo.setVisible(False)
+            self.month_combo.setVisible(False)
+        elif mode == "By Year":
+            self.year_combo.setVisible(True)
+            self.month_combo.setVisible(False)
+        elif mode == "By Year and Month":
+            self.year_combo.setVisible(True)
+            self.month_combo.setVisible(True)
+
+    def clear_filters(self):
+        """Reset filter combo boxes to default."""
+        self.filter_type.setCurrentText("All")
+        self.update_filter_options()
+        self.load_expenses()
+
     def load_expenses(self):
-        expenses = crud.get_expenses()
+        """Load and display expenses with active filters."""
+        filter_mode = self.filter_type.currentText()
+        expenses = []
+
+        try:
+            if filter_mode == "All":
+                expenses = crud.get_expenses()
+                self.current_filter_label.setText("Showing: All expenses")
+            elif filter_mode == "By Year":
+                year = int(self.year_combo.currentText())
+                expenses = crud.get_expenses(year=year)
+                self.current_filter_label.setText(f"Showing: Expenses from {year}")
+                
+            elif filter_mode == "By Year and Month":
+                year = int(self.year_combo.currentText())
+                month = int(self.month_combo.currentText())
+                expenses = crud.get_expenses(year=year, month=month)
+                self.current_filter_label.setText(f"Showing: Expenses from {year}-{month}")
+
+        except Exception:
+            expenses = crud.get_expenses()  # fallback if any error
+
+        # Sort by date ASC
+        expenses = sorted(
+            [e for e in expenses if e[4] is not None],
+            key=lambda e: e[4],
+            reverse=True
+        )
+        # Display in table
         self.table.setRowCount(len(expenses))
-        self.table.hideColumn(0)
-        self.table.verticalHeader().setVisible(False)
-        self.table.setSortingEnabled(True)
-        
         for row, exp in enumerate(expenses):
             for col, val in enumerate(exp):
                 display_val = "" if val is None else str(val)
                 self.table.setItem(row, col, QTableWidgetItem(display_val))
 
-                #If dont want to select and change ID
-                #item = QTableWidgetItem(display_val)
-                #if col == 0:  # ID column
-                #    item.setFlags(item.flags() & ~Qt.ItemIsEditable)
-                #self.table.setItem(row, col, item)
+        self.table.resizeColumnsToContents()
+
+    def load_years(self):
+        """Load available years dynamically (fallback if unavailable)."""
+        years = crud.get_available_years() if hasattr(crud, "get_available_years") else []
+        self.year_combo.clear()
+        if years:
+            self.year_combo.addItems([str(y) for y in years])
+        else:
+            current_year = QDate.currentDate().year()
+            self.year_combo.addItems([str(y) for y in range(current_year - 10, current_year + 1)])
+
+    def load_years(self):
+        """Load available years into year filter combo."""
+        years = crud.get_available_years() if hasattr(crud, "get_available_years") else []
+        self.year_combo.clear()
+        if years:
+            self.year_combo.addItems([str(y) for y in years])
+        else:
+            # fallback if no function implemented
+            self.year_combo.addItems([str(y) for y in range(2015, QDate.currentDate().year() + 1)])
+
 
     def get_selected_expense_id(self):
         row = self.table.currentRow()
         if row < 0:
             return None
         return int(self.table.item(row, 0).text())
+
+    def load_years(self):
+        years = crud.get_available_years()  # we’ll add this next
+        self.year_combo.clear()
+        self.year_combo.addItems([str(y) for y in years])
 
     def delete_expense(self):
         exp_id = self.get_selected_expense_id()
