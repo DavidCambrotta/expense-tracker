@@ -23,7 +23,8 @@ def get_totals_grouped():
     rows = cur.fetchall()
     conn.close()
     return rows
-    
+
+### for cli.py   
 def get_total_by_category(main_cat, mid_cat=None, sub_cat=None):
     """
     Return total expenses for a given category path.

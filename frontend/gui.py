@@ -6,8 +6,8 @@ from PySide6.QtWidgets import (
     QComboBox, QLineEdit, QTextEdit, QTableWidget, QTableWidgetItem,
     QDateEdit, QMessageBox, QHBoxLayout
 )
-from PySide6.QtCore import QDate
-from backend import crud
+from PySide6.QtCore import QDate, Qt
+from backend import crud, reports
 from backend.validation import CATEGORIES
 
 
@@ -22,6 +22,7 @@ class ExpenseTracker(QMainWindow):
 
         self.tabs.addTab(self.add_expense_tab(), "➕ Add Expense")
         self.tabs.addTab(self.list_expenses_tab(), "📋 List Expenses")
+        self.tabs.addTab(self.reports_tab(), "📊 Reports")
 
     # ---------------- Add Expense Tab ----------------
     def add_expense_tab(self):
@@ -238,7 +239,6 @@ class ExpenseTracker(QMainWindow):
             # fallback if no function implemented
             self.year_combo.addItems([str(y) for y in range(2015, QDate.currentDate().year() + 1)])
 
-
     def get_selected_expense_id(self):
         row = self.table.currentRow()
         if row < 0:
@@ -283,6 +283,118 @@ class ExpenseTracker(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, "Error", str(e))
 
+# ---------------- Reports  Tab ----------------
+    def reports_tab(self):
+        widget = QWidget()
+        layout = QVBoxLayout()
+
+        # Report Type Selector
+        self.report_type = QComboBox()
+        self.report_type.addItems(["By Date", "By Category"])
+        self.report_type.currentIndexChanged.connect(self.update_report_mode)
+
+        layout.addWidget(QLabel("Select Report Type:"))
+        layout.addWidget(self.report_type)
+
+        # Date Range Widgets
+        self.start_date = QDateEdit()
+        self.start_date.setCalendarPopup(True)
+        self.end_date = QDateEdit()
+        self.end_date.setCalendarPopup(True)
+
+        # Category Widgets
+        self.main_box = QComboBox()
+        self.main_box.addItems(CATEGORIES.keys())
+        self.main_box.currentTextChanged.connect(self.update_mid_box)
+
+        self.mid_box = QComboBox()
+        self.mid_box.currentTextChanged.connect(self.update_sub_box)
+
+        self.sub_box = QComboBox()
+
+        self.update_mid_box(self.main_box.currentText())
+
+        # Stack for dynamic inputs
+        self.date_range_box = QWidget()
+        date_layout = QFormLayout()
+        date_layout.addRow("Start Date:", self.start_date)
+        date_layout.addRow("End Date:", self.end_date)
+        self.date_range_box.setLayout(date_layout)
+
+        self.category_box = QWidget()
+        cat_layout = QFormLayout()
+        cat_layout.addRow("Main:", self.main_box)
+        cat_layout.addRow("Mid:", self.mid_box)
+        cat_layout.addRow("Sub:", self.sub_box)
+        self.category_box.setLayout(cat_layout)
+
+        layout.addWidget(self.date_range_box)
+        layout.addWidget(self.category_box)
+
+        # Generate Button
+        gen_btn = QPushButton("📊 Generate Report")
+        gen_btn.clicked.connect(self.generate_report)
+        layout.addWidget(gen_btn)
+
+        # Results Table
+        self.report_table = QTableWidget()
+        #self.report_table.setColumnCount(6)
+        #self.report_table.setHorizontalHeaderLabels(["Main", "Mid", "Sub", "Date", "Value", "Notes"])
+        #layout.addWidget(self.report_table)
+
+        self.report_result_label = QLabel("")
+        self.report_result_label.setAlignment(Qt.AlignCenter)
+        self.report_result_label.setStyleSheet("font-size: 16px; font-weight: bold; color: green;")
+        layout.addWidget(self.report_result_label)
+        
+        #comment this one for remove the table
+        #layout.addWidget(self.report_table)    
+
+        widget.setLayout(layout)
+        self.update_report_mode()  # Initialize visibility
+        return widget
+
+    def update_report_mode(self):
+        mode = self.report_type.currentText()
+        self.date_range_box.setVisible(mode == "By Date")
+        self.category_box.setVisible(mode == "By Category")
+
+    def update_mid_box(self, main):
+        self.mid_box.clear()
+        self.sub_box.clear()
+        mids = list(CATEGORIES[main].keys())
+        self.mid_box.addItems(mids)
+        if mids:
+            self.update_sub_box(mids[0])
+
+    def update_sub_box(self, mid):
+        self.sub_box.clear()
+        main = self.main_box.currentText()
+        subs = CATEGORIES[main][mid]
+        if subs:
+            self.sub_box.addItems(subs)
+        else:
+            self.sub_box.addItem("")
+
+    def generate_report(self):
+        mode = self.report_type.currentText()
+
+        if mode == "By Date":
+            start = self.start_date.date().toString("yyyy-MM-dd")
+            end = self.end_date.date().toString("yyyy-MM-dd")
+            total = reports.get_total_by_date_range(start, end)
+            summary_text = f"💰 Total expenses from {start} to {end}: ${total:.2f}"
+        else:
+            main = self.main_box.currentText()
+            mid = self.mid_box.currentText()
+            sub = self.sub_box.currentText()
+            if sub == "":
+                sub = None
+            total = reports.get_total_by_category(main, mid, sub)
+            cat_text = " > ".join(filter(None, [main, mid, sub]))
+            summary_text = f"💰 Total expenses for {cat_text}: ${total:.2f}"
+
+        self.report_result_label.setText(summary_text)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
