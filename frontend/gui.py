@@ -299,8 +299,11 @@ class ExpenseTracker(QMainWindow):
         # Date Range Widgets
         self.start_date = QDateEdit()
         self.start_date.setCalendarPopup(True)
+        self.start_date.setDate(QDate.currentDate())  # ✅ start today
+
         self.end_date = QDateEdit()
         self.end_date.setCalendarPopup(True)
+        self.end_date.setDate(QDate.currentDate())    # ✅ end today
 
         # Category Widgets
         self.main_box = QComboBox()
