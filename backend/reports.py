@@ -114,3 +114,31 @@ def get_totals_grouped(level="main"):
     rows = cur.fetchall()
     conn.close()
     return rows
+
+def get_total_filtered(main=None, mid=None, sub=None, start=None, end=None):
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    query = "SELECT SUM(value) FROM expenses WHERE 1=1"
+    params = []
+
+    if main:
+        query += " AND main_category = ?"
+        params.append(main)
+    if mid:
+        query += " AND mid_category = ?"
+        params.append(mid)
+    if sub:
+        query += " AND sub_category = ?"
+        params.append(sub)
+    if start:
+        query += " AND date >= ?"
+        params.append(start)
+    if end:
+        query += " AND date <= ?"
+        params.append(end)
+
+    cur.execute(query, params)
+    total = cur.fetchone()[0]
+    return total or 0.0
