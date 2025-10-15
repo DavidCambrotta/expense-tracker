@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import QDate, Qt
 from backend import crud, reports
 from backend.validation import CATEGORIES
+from datetime import date, timedelta
 
 
 class ExpenseTracker(QMainWindow):
@@ -303,9 +304,28 @@ class ExpenseTracker(QMainWindow):
         self.start_date.setDate(QDate(today.year(), today.month(), 1))
         self.end_date.setDate(today)
 
-        date_layout = QFormLayout()
-        date_layout.addRow("Start Date:", self.start_date)
-        date_layout.addRow("End Date:", self.end_date)
+        # --- Date Range Section ---
+        self.date_range_box = QWidget()
+        #date_layout = QVBoxLayout()
+
+        # Date pickers
+        form = QFormLayout()
+        form.addRow("Start Date:", self.start_date)
+        form.addRow("End Date:", self.end_date)
+        layout.addLayout(form)
+
+        # Quick-select buttons
+        btn_layout = QHBoxLayout()
+        current_month_btn = QPushButton("📅 Current Month")
+        current_month_btn.clicked.connect(self.set_current_month)
+        current_year_btn = QPushButton("🗓 Current Year")
+        current_year_btn.clicked.connect(self.set_current_year)
+
+        btn_layout.addWidget(current_month_btn)
+        btn_layout.addWidget(current_year_btn)
+
+        layout.addLayout(btn_layout)
+        self.date_range_box.setLayout(layout)
 
         # Category Widgets
         self.main_box = QComboBox()
@@ -326,7 +346,7 @@ class ExpenseTracker(QMainWindow):
 
         # --- Combine Date + Category layouts ---
         layout.addWidget(QLabel("Filter by Date and/or Category:"))
-        layout.addLayout(date_layout)
+        layout.addLayout(layout)
         layout.addLayout(cat_layout)
 
         # --- Generate Button ---
@@ -386,6 +406,26 @@ class ExpenseTracker(QMainWindow):
             self.sub_box.addItems(subs)
         else:
             self.sub_box.addItem("")
+
+    def set_current_month(self):
+        today = date.today()
+        start = date(today.year, today.month, 1)
+        # Compute last day of month safely
+        if today.month == 12:
+            end = date(today.year, 12, 31)
+        else:
+            next_month = date(today.year, today.month + 1, 1)
+            end = next_month.replace(day=1) - timedelta(days=1)
+        self.start_date.setDate(QDate(start.year, start.month, start.day))
+        self.end_date.setDate(QDate(end.year, end.month, end.day))
+
+    def set_current_year(self):
+        today = date.today()
+        start = date(today.year, 1, 1)
+        end = date(today.year, 12, 31)
+        self.start_date.setDate(QDate(start.year, start.month, start.day))
+        self.end_date.setDate(QDate(end.year, end.month, end.day))
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
