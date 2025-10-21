@@ -135,3 +135,7 @@ Expense Tracker App – Roadmap
     Improve value input - float accept , and .
     Category is now fixed - choose in Menu
     Category now have 3 arguments: Main, mid and sub
+
+
+clear charts button,
+chart labels? totals inside charts?..
