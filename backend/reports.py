@@ -142,3 +142,15 @@ def get_total_filtered(main=None, mid=None, sub=None, start=None, end=None):
     cur.execute(query, params)
     total = cur.fetchone()[0]
     return total or 0.0
+
+def set_current_month(self):
+    """Set start/end date to cover the current month."""
+    today = QDate.currentDate()
+    self.start_date.setDate(QDate(today.year(), today.month(), 1))
+    self.end_date.setDate(today)
+
+def set_current_year(self):
+    """Set start/end date to cover the current year."""
+    today = QDate.currentDate()
+    self.start_date.setDate(QDate(today.year(), 1, 1))
+    self.end_date.setDate(today)

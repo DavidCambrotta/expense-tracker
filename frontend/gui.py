@@ -317,9 +317,10 @@ class ExpenseTracker(QMainWindow):
         # Quick-select buttons
         btn_layout = QHBoxLayout()
         current_month_btn = QPushButton("📅 Current Month")
-        current_month_btn.clicked.connect(self.set_current_month)
+        current_month_btn.clicked.connect(lambda: (self.set_current_month(), self.generate_report()))
+
         current_year_btn = QPushButton("🗓 Current Year")
-        current_year_btn.clicked.connect(self.set_current_year)
+        current_year_btn.clicked.connect(lambda: (self.set_current_year(), self.generate_report()))
 
         btn_layout.addWidget(current_month_btn)
         btn_layout.addWidget(current_year_btn)
