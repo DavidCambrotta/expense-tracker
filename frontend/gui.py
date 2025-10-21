@@ -10,6 +10,46 @@ from PySide6.QtCore import QDate, Qt
 from backend import crud, reports
 from backend.validation import CATEGORIES
 from datetime import date, timedelta
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
+
+class PieChartCanvas(FigureCanvas):
+    def __init__(self, title):
+        self.fig = Figure(figsize=(3, 3))
+        super().__init__(self.fig)
+        self.ax = self.fig.add_subplot(111)
+        self.title = title
+        self.draw_empty()
+
+    def draw_empty(self):
+        self.ax.clear()
+        self.ax.text(0.5, 0.5, "No Data", ha="center", va="center", fontsize=12, color="gray")
+        self.ax.set_title(self.title)
+        self.ax.axis("off")
+        self.draw()
+
+    def plot_pie(self, data_dict):
+        self.ax.clear()
+        if not data_dict:
+            self.draw_empty()
+            return
+
+        labels = list(data_dict.keys())
+        sizes = [float(v) for v in data_dict.values() if v is not None]
+
+        # Handle edge case where all values are 0 or empty
+        if not sizes or sum(sizes) == 0:
+            self.draw_empty()
+            return
+
+        self.ax.pie(
+            sizes,
+            labels=labels,
+            autopct="%1.1f%%",
+            startangle=140
+        )
+        self.ax.set_title(self.title)
+        self.draw()
 
 
 class ExpenseTracker(QMainWindow):
@@ -288,47 +328,34 @@ class ExpenseTracker(QMainWindow):
     def reports_tab(self):
         widget = QWidget()
         layout = QVBoxLayout()
-
         layout.addWidget(QLabel("📊 Expense Report"))
 
-        # Date Range Widgets
+        # --- Date Range Widgets ---
+        today = QDate.currentDate()
         self.start_date = QDateEdit()
         self.start_date.setCalendarPopup(True)
-        #self.start_date.setDate(QDate.currentDate())  # ✅ start today
+        self.start_date.setDate(QDate(today.year(), today.month(), 1))
 
         self.end_date = QDateEdit()
         self.end_date.setCalendarPopup(True)
-        #self.end_date.setDate(QDate.currentDate())    # ✅ end today
-
-        today = QDate.currentDate()
-        self.start_date.setDate(QDate(today.year(), today.month(), 1))
         self.end_date.setDate(today)
 
-        # --- Date Range Section ---
-        self.date_range_box = QWidget()
-        #date_layout = QVBoxLayout()
+        date_layout = QFormLayout()
+        date_layout.addRow("Start Date:", self.start_date)
+        date_layout.addRow("End Date:", self.end_date)
+        layout.addLayout(date_layout)
 
-        # Date pickers
-        form = QFormLayout()
-        form.addRow("Start Date:", self.start_date)
-        form.addRow("End Date:", self.end_date)
-        layout.addLayout(form)
-
-        # Quick-select buttons
+        # --- Quick Date Buttons ---
         btn_layout = QHBoxLayout()
         current_month_btn = QPushButton("📅 Current Month")
         current_month_btn.clicked.connect(lambda: (self.set_current_month(), self.generate_report()))
-
         current_year_btn = QPushButton("🗓 Current Year")
         current_year_btn.clicked.connect(lambda: (self.set_current_year(), self.generate_report()))
-
         btn_layout.addWidget(current_month_btn)
         btn_layout.addWidget(current_year_btn)
-
         layout.addLayout(btn_layout)
-        self.date_range_box.setLayout(layout)
 
-        # Category Widgets
+        # --- Category Filters ---
         self.main_box = QComboBox()
         self.main_box.addItems(CATEGORIES.keys())
         self.main_box.currentTextChanged.connect(self.update_mid_box)
@@ -337,17 +364,14 @@ class ExpenseTracker(QMainWindow):
         self.mid_box.currentTextChanged.connect(self.update_sub_box)
 
         self.sub_box = QComboBox()
-
         self.update_mid_box(self.main_box.currentText())
-        
+
         cat_layout = QFormLayout()
         cat_layout.addRow("Main:", self.main_box)
         cat_layout.addRow("Mid:", self.mid_box)
         cat_layout.addRow("Sub:", self.sub_box)
 
-        # --- Combine Date + Category layouts ---
         layout.addWidget(QLabel("Filter by Date and/or Category:"))
-        layout.addLayout(layout)
         layout.addLayout(cat_layout)
 
         # --- Generate Button ---
@@ -355,15 +379,26 @@ class ExpenseTracker(QMainWindow):
         gen_btn.clicked.connect(self.generate_report)
         layout.addWidget(gen_btn)
 
-        # --- Result ---
+        # --- Report Summary ---
         self.report_result_label = QLabel("")
         self.report_result_label.setAlignment(Qt.AlignCenter)
         self.report_result_label.setStyleSheet("font-size: 16px; font-weight: bold; color: green;")
         layout.addWidget(self.report_result_label)
 
+        # --- Pie Charts ---
+        self.pie_main = PieChartCanvas("Main Categories")
+        self.pie_mid = PieChartCanvas("Mid Categories")
+        self.pie_sub = PieChartCanvas("Sub Categories")
+
+        pie_layout = QHBoxLayout()
+        pie_layout.addWidget(self.pie_main)
+        pie_layout.addWidget(self.pie_mid)
+        pie_layout.addWidget(self.pie_sub)
+
+        layout.addLayout(pie_layout)
+
         widget.setLayout(layout)
         return widget
-
 
     def generate_report(self):
         start = self.start_date.date().toString("yyyy-MM-dd")
@@ -388,6 +423,36 @@ class ExpenseTracker(QMainWindow):
 
         filter_text = " > ".join(filters) if filters else "All Categories"
         summary_text = f"💰 Total from {start} to {end} for {filter_text}: ${total:.2f}"
+
+        # --- Generate Pie Chart Data ---
+        from collections import defaultdict
+
+        expenses = reports.expenses = reports.get_expenses_filtered(
+            main=main or None,
+            mid=mid or None,
+            sub=sub or None,
+            start=start or None,
+            end=end or None
+        )
+
+        main_totals = defaultdict(float)
+        mid_totals = defaultdict(float)
+        sub_totals = defaultdict(float)
+
+        for exp in expenses:
+            try:
+                value = float(exp[4])  # Convert safely
+            except (ValueError, TypeError):
+                value = 0.0
+
+            main_totals[exp[1]] += value
+            mid_totals[exp[2]] += value
+            sub_totals[exp[3]] += value
+
+        # --- Update Pie Charts ---
+        self.pie_main.plot_pie(main_totals)
+        self.pie_mid.plot_pie(mid_totals)
+        self.pie_sub.plot_pie(sub_totals)
 
         self.report_result_label.setText(summary_text)
 
