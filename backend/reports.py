@@ -182,3 +182,27 @@ def set_current_year(self):
     today = QDate.currentDate()
     self.start_date.setDate(QDate(today.year(), 1, 1))
     self.end_date.setDate(today)
+
+
+def get_expenses_by_date_range(start=None, end=None):
+    """
+    Returns all expenses within a given date range as tuples:
+    (id, main_category, mid_category, sub_category, date, value, notes)
+    """
+    conn = get_connection()
+    cur = conn.cursor()
+
+    query = "SELECT id, main_category, mid_category, sub_category, date, value, notes FROM expenses WHERE 1=1"
+    params = []
+
+    if start:
+        query += " AND date >= ?"
+        params.append(start)
+    if end:
+        query += " AND date <= ?"
+        params.append(end)
+
+    cur.execute(query, params)
+    rows = cur.fetchall()
+    conn.close()
+    return rows
