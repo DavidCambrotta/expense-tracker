@@ -23,7 +23,8 @@ def get_totals_grouped():
     rows = cur.fetchall()
     conn.close()
     return rows
-    
+
+### for cli.py   
 def get_total_by_category(main_cat, mid_cat=None, sub_cat=None):
     """
     Return total expenses for a given category path.
@@ -110,6 +111,98 @@ def get_totals_grouped(level="main"):
     else:
         raise ValueError("Invalid grouping level. Use 'main', 'mid', or 'sub'.")
 
+    rows = cur.fetchall()
+    conn.close()
+    return rows
+
+def get_total_filtered(main=None, mid=None, sub=None, start=None, end=None):
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    query = "SELECT SUM(value) FROM expenses WHERE 1=1"
+    params = []
+
+    if main:
+        query += " AND main_category = ?"
+        params.append(main)
+    if mid:
+        query += " AND mid_category = ?"
+        params.append(mid)
+    if sub:
+        query += " AND sub_category = ?"
+        params.append(sub)
+    if start:
+        query += " AND date >= ?"
+        params.append(start)
+    if end:
+        query += " AND date <= ?"
+        params.append(end)
+
+    cur.execute(query, params)
+    total = cur.fetchone()[0]
+    return total or 0.0
+
+def get_expenses_filtered(main=None, mid=None, sub=None, start=None, end=None):
+    conn = get_connection()
+    cur = conn.cursor()
+
+    query = "SELECT * FROM expenses WHERE 1=1"
+    params = []
+
+    if main:
+        query += " AND main_category = ?"
+        params.append(main)
+    if mid:
+        query += " AND mid_category = ?"
+        params.append(mid)
+    if sub:
+        query += " AND sub_category = ?"
+        params.append(sub)
+    if start:
+        query += " AND date >= ?"
+        params.append(start)
+    if end:
+        query += " AND date <= ?"
+        params.append(end)
+
+    cur.execute(query, params)
+    rows = cur.fetchall()
+    conn.close()
+    return rows
+
+def set_current_month(self):
+    """Set start/end date to cover the current month."""
+    today = QDate.currentDate()
+    self.start_date.setDate(QDate(today.year(), today.month(), 1))
+    self.end_date.setDate(today)
+
+def set_current_year(self):
+    """Set start/end date to cover the current year."""
+    today = QDate.currentDate()
+    self.start_date.setDate(QDate(today.year(), 1, 1))
+    self.end_date.setDate(today)
+
+
+def get_expenses_by_date_range(start=None, end=None):
+    """
+    Returns all expenses within a given date range as tuples:
+    (id, main_category, mid_category, sub_category, date, value, notes)
+    """
+    conn = get_connection()
+    cur = conn.cursor()
+
+    query = "SELECT id, main_category, mid_category, sub_category, date, value, notes FROM expenses WHERE 1=1"
+    params = []
+
+    if start:
+        query += " AND date >= ?"
+        params.append(start)
+    if end:
+        query += " AND date <= ?"
+        params.append(end)
+
+    cur.execute(query, params)
     rows = cur.fetchall()
     conn.close()
     return rows

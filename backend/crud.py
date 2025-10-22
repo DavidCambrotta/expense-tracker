@@ -40,18 +40,38 @@ def update_expense(expense_id, main_cat, mid_cat, sub_cat, date, value, notes=""
     conn.commit()
     conn.close()
 
-def get_expenses():
+def get_expenses(year: int = None, month: int = None):
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("""
+
+    query = """
         SELECT id, main_category, mid_category, sub_category, date, value, notes
         FROM expenses
-        ORDER BY date DESC, id DESC
-    """)
+    """
+    params = []
+
+    if year and month:
+        query += " WHERE strftime('%Y', date)=? AND strftime('%m', date)=?"
+        params.extend([str(year), f"{month:02d}"])
+    elif year:
+        query += " WHERE strftime('%Y', date)=?"
+        params.append(str(year))
+
+    query += " ORDER BY date ASC"
+
+    cur.execute(query, params)
     rows = cur.fetchall()
     conn.close()
-    # correct order: id, main_cat, sub_cat, date, value, notes
+
     return [(r[0], r[1], r[2], r[3], r[4], float(r[5]), r[6]) for r in rows]
+
+def get_available_years():
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT DISTINCT strftime('%Y', date) FROM expenses ORDER BY 1 ASC")
+    years = [int(r[0]) for r in cur.fetchall() if r[0]]
+    conn.close()
+    return years
 
 def delete_expense(expense_id):
     conn = get_connection()
