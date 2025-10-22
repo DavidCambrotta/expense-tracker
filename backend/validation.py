@@ -3,17 +3,15 @@ from typing import Tuple, Optional
 
 CATEGORIES = {
     "Daily Expenses": {
-        "Groceries": None,
-        "Going Out": ["Food", "Drinks", "Others"],
-        "Travel": ["Gasoline", "Transport", "Vacation"],
-        "Health": None,
-        "Others": ["Cloths", "Sports", "Others"]
+        "Groceries": ["Food", "Others"],
+        "Going Out": ["Restaurant", "Night Out", "Others"],
+        "Transportation": ["Gasoline", "Trans/Bus", "Uber", "Vacation"],
+        "Others": ["Health", "Cloths", "Sports", "Others"]
     },
     "Month Expenses": {
         "Rent": None,
         "Utilities": None,
-        "Phone": None,
-        "Others": ["Gym", "Netflix"]
+        "Subscriptions": ["Phone", "Gym", "Cloud", "Cloud"]
     }
 }
 
