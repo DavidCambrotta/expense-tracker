@@ -13,49 +13,49 @@ from datetime import date, timedelta
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from collections import defaultdict
+import matplotlib as mpl
+import numpy as np
 
 class PieChartCanvas(FigureCanvas):
+    COLOR_MAP = {}  # stores persistent colors for labels
+    PALETTE = list(mpl.colormaps["tab20"].colors)  # 20 distinct colors
+
     def __init__(self, title):
-        self.fig = Figure(figsize=(3, 3), tight_layout=True)
+        self.fig = Figure(figsize=(3, 3))
         super().__init__(self.fig)
         self.ax = self.fig.add_subplot(111)
         self.title = title
-        self.setMinimumSize(260, 260)  # ensure visible area
         self.draw_empty()
 
     def draw_empty(self):
         self.ax.clear()
-        self.ax.text(0.5, 0.5, "No Data", ha="center", va="center",
-                     fontsize=12, color="gray")
+        self.ax.text(0.5, 0.5, "No Data", ha="center", va="center", fontsize=12, color="gray")
         self.ax.set_title(self.title)
         self.ax.axis("off")
-        self.draw_idle()  # ✅ ensures redraw inside Qt
+        self.draw()
 
     def plot_pie(self, data_dict):
         self.ax.clear()
-        self.ax.set_aspect('equal', 'box')  # keep circle shape
 
-        if not data_dict:
+        if not data_dict or sum(data_dict.values()) == 0:
             self.draw_empty()
             return
 
         labels = list(data_dict.keys())
         sizes = list(data_dict.values())
 
-        if sum(sizes) == 0:
-            self.draw_empty()
-            return
+        # assign colors deterministically
+        for label in labels:
+            if label not in PieChartCanvas.COLOR_MAP:
+                idx = len(PieChartCanvas.COLOR_MAP) % len(PieChartCanvas.PALETTE)
+                PieChartCanvas.COLOR_MAP[label] = PieChartCanvas.PALETTE[idx]
 
-        self.ax.pie(
-            sizes,
-            labels=labels,
-            autopct="%1.1f%%",
-            startangle=140,
-            textprops={'fontsize': 8},
-        )
+        colors = [PieChartCanvas.COLOR_MAP[label] for label in labels]
+
+        self.ax.pie(sizes, labels=labels, autopct="%1.1f%%", startangle=140, colors=colors)
         self.ax.set_title(self.title)
-        self.fig.tight_layout()  # align all pies nicely
         self.draw()
+
 
 class ExpenseTracker(QMainWindow):
     def __init__(self):
@@ -313,7 +313,7 @@ class ExpenseTracker(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, "Error", str(e))
 
-# ---------------- Reports  Tab ----------------
+    # ---------------- Reports  Tab ----------------
     def reports_tab(self):
         widget = QWidget()
         layout = QVBoxLayout()
