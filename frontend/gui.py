@@ -391,6 +391,22 @@ class ExpenseTracker(QMainWindow):
         #layout.addWidget(QLabel("Category Breakdown (Global)"))
         layout.addLayout(pie_layout)
 
+        # --- Totals Labels (below each pie) ---
+        totals_layout = QHBoxLayout()
+        self.label_main_total = QLabel("Total: $0.00")
+        self.label_daily_total = QLabel("Total: $0.00")
+        self.label_month_total = QLabel("Total: $0.00")
+
+        for lbl in [self.label_main_total, self.label_daily_total, self.label_month_total]:
+            lbl.setAlignment(Qt.AlignCenter)
+            lbl.setStyleSheet("font-size: 14px; font-weight: bold; color: #444;")
+
+        totals_layout.addWidget(self.label_main_total)
+        totals_layout.addWidget(self.label_daily_total)
+        totals_layout.addWidget(self.label_month_total)
+
+        layout.addLayout(totals_layout)
+
         widget.setLayout(layout)
 
         # Initialize pie charts
@@ -523,6 +539,11 @@ class ExpenseTracker(QMainWindow):
         self.pie_main.plot_pie(main_totals)
         self.pie_daily.plot_pie(daily_mid_totals)
         self.pie_month.plot_pie(month_mid_totals)
+
+        # Draw labels
+        self.label_main_total.setText(f"Total: ${sum(main_totals.values()):.2f}")
+        self.label_daily_total.setText(f"Total: ${sum(daily_mid_totals.values()):.2f}")
+        self.label_month_total.setText(f"Total: ${sum(month_mid_totals.values()):.2f}")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
