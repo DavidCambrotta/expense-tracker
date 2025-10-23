@@ -43,6 +43,8 @@ class PieChartCanvas(FigureCanvas):
 
         labels = list(data_dict.keys())
         sizes = list(data_dict.values())
+        total = sum(sizes)
+
 
         # assign colors deterministically
         for label in labels:
@@ -52,8 +54,25 @@ class PieChartCanvas(FigureCanvas):
 
         colors = [PieChartCanvas.COLOR_MAP[label] for label in labels]
 
-        self.ax.pie(sizes, labels=labels, autopct="%1.1f%%", startangle=140, colors=colors)
-        self.ax.set_title(self.title)
+        #Plot pie just with percentage 
+        #self.ax.pie(sizes, labels=labels, autopct="%1.1f%%", startangle=140, colors=colors)
+        #or percentage + total
+        #self.ax.pie(sizes, labels=labels, autopct=lambda p: f"{p:.1f}%\n(${p * total / 100:.2f})", startangle=140, colors=colors)
+        #self.ax.set_title(self.title)
+
+        # --- Plot pie with percentage + $ value ---
+        wedges, texts, autotexts = self.ax.pie(sizes,colors=colors,startangle=140,autopct="%1.1f%%",textprops={'color': 'white', 'fontsize': 9})
+
+        # --- Legend on the right ---
+        legend_labels = [f"{lbl}: ${val:.2f}" for lbl, val in zip(labels, sizes)]
+        self.ax.legend(wedges,legend_labels,loc="center left",bbox_to_anchor=(1.05, 0.5),fontsize=8,frameon=False)
+
+        # --- Title and total below ---
+        self.ax.set_title(self.title, fontsize=12, fontweight="bold", pad=20)
+        self.ax.text(0.5, -0.2,f"Total: ${total:.2f}",ha="center",fontsize=10,color="#333",fontweight="bold",transform=self.ax.transAxes)
+
+        self.ax.axis("equal")
+        self.fig.tight_layout()
         self.draw()
 
 
@@ -392,7 +411,7 @@ class ExpenseTracker(QMainWindow):
         layout.addLayout(pie_layout)
 
         # --- Totals Labels (below each pie) ---
-        totals_layout = QHBoxLayout()
+        '''totals_layout = QHBoxLayout()
         self.label_main_total = QLabel("Total: $0.00")
         self.label_daily_total = QLabel("Total: $0.00")
         self.label_month_total = QLabel("Total: $0.00")
@@ -405,7 +424,7 @@ class ExpenseTracker(QMainWindow):
         totals_layout.addWidget(self.label_daily_total)
         totals_layout.addWidget(self.label_month_total)
 
-        layout.addLayout(totals_layout)
+        layout.addLayout(totals_layout)'''
 
         widget.setLayout(layout)
 
@@ -541,9 +560,9 @@ class ExpenseTracker(QMainWindow):
         self.pie_month.plot_pie(month_mid_totals)
 
         # Draw labels
-        self.label_main_total.setText(f"Total: ${sum(main_totals.values()):.2f}")
-        self.label_daily_total.setText(f"Total: ${sum(daily_mid_totals.values()):.2f}")
-        self.label_month_total.setText(f"Total: ${sum(month_mid_totals.values()):.2f}")
+        #self.label_main_total.setText(f"Total: ${sum(main_totals.values()):.2f}")
+        #self.label_daily_total.setText(f"Total: ${sum(daily_mid_totals.values()):.2f}")
+        #self.label_month_total.setText(f"Total: ${sum(month_mid_totals.values()):.2f}")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
