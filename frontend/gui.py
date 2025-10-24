@@ -12,6 +12,7 @@ from backend.validation import CATEGORIES
 from datetime import date, timedelta
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
+from matplotlib.animation import FuncAnimation
 from collections import defaultdict
 import matplotlib as mpl
 import numpy as np
@@ -90,6 +91,50 @@ class PieChartCanvas(FigureCanvas):
 
         self._wedges = wedges
         self._labels = labels
+        self._current_data = data_dict
+
+    def animate_transition(self, new_data_dict):
+        """Animate a smooth transition from current pie to new pie."""
+        old_data = getattr(self, "_current_data", {})
+        old_labels = list(old_data.keys())
+        old_sizes = list(old_data.values())
+
+        new_labels = list(new_data_dict.keys())
+        new_sizes = list(new_data_dict.values())
+
+        if not new_labels or sum(new_sizes) == 0:
+            self.draw_empty()
+            return
+
+        # If old pie doesn't exist, just draw new one
+        if not old_labels or len(old_sizes) != len(new_sizes):
+            self.plot_pie(new_data_dict)
+            return
+
+        # Normalize data lengths by zero-padding shorter one
+        max_len = max(len(old_sizes), len(new_sizes))
+        while len(old_sizes) < max_len:
+            old_sizes.append(0)
+        while len(new_sizes) < max_len:
+            new_sizes.append(0)
+
+        # Generate interpolated frames between old and new
+        frames = 20
+        def interpolate(i):
+            alpha = i / frames
+            interpolated = [
+                old_sizes[j] * (1 - alpha) + new_sizes[j] * alpha
+                for j in range(max_len)
+            ]
+            data_dict = {
+                (new_labels[j] if j < len(new_labels) else old_labels[j]): interpolated[j]
+                for j in range(max_len)
+            }
+            self.plot_pie(data_dict)
+
+        FuncAnimation(self.fig, interpolate, frames=frames, interval=50, repeat=False)
+        self._current_data = new_data_dict
+
 
     def on_pick(self, event):
         if not hasattr(event, "artist"):
@@ -632,7 +677,27 @@ class ExpenseTracker(QMainWindow):
         return dict(subs)
 
     def reset_pies(self):
-        self.update_pie_charts()
+        if hasattr(self, "pie_daily"):
+            main_data = self.get_mid_totals("Daily Expenses")
+            self.pie_daily.animate_transition(main_data)
+
+        if hasattr(self, "pie_month"):
+            month_data = self.get_mid_totals("Month Expenses")
+            self.pie_month.animate_transition(month_data)
+
+    def get_mid_totals(self, main_category):
+        from collections import defaultdict
+        mids = defaultdict(float)
+        expenses = reports.get_expenses_by_date_range(
+            self.start_date.date().toString("yyyy-MM-dd"),
+            self.end_date.date().toString("yyyy-MM-dd")
+        )
+
+        for exp in expenses:
+            if exp[1] == main_category:
+                mids[exp[2]] += float(exp[5])
+        return dict(mids)
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
