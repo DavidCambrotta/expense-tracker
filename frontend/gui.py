@@ -20,12 +20,16 @@ class PieChartCanvas(FigureCanvas):
     COLOR_MAP = {}  # stores persistent colors for labels
     PALETTE = list(mpl.colormaps["tab20"].colors)  # 20 distinct colors
 
-    def __init__(self, title):
+    def __init__(self, title, on_slice_click=None):
         self.fig = Figure(figsize=(3, 3))
         super().__init__(self.fig)
         self.ax = self.fig.add_subplot(111)
         self.title = title
+        self.on_slice_click = on_slice_click  # callback from parent
         self.draw_empty()
+
+        # enable picking (click detection)
+        self.mpl_connect("pick_event", self.on_pick)
 
     def draw_empty(self):
         self.ax.clear()
@@ -59,12 +63,21 @@ class PieChartCanvas(FigureCanvas):
         #or percentage + total
         #self.ax.pie(sizes, labels=labels, autopct=lambda p: f"{p:.1f}%\n(${p * total / 100:.2f})", startangle=140, colors=colors)
         #self.ax.set_title(self.title)
-
-        # --- Plot pie with percentage + $ value ---
-        wedges, texts, autotexts = self.ax.pie(sizes,colors=colors,startangle=140,autopct="%1.1f%%",textprops={'color': 'white', 'fontsize': 9})
-
+        wedges, texts, autotexts = self.ax.pie(
+            sizes,
+            colors=colors,
+            startangle=140,
+            autopct="%1.1f%%",
+            textprops={'color': 'white', 'fontsize': 9},
+            wedgeprops={'picker': True}  # enable clicking wedges
+)
         # --- Legend on the right ---
-        legend_labels = [f"{lbl}: ${val:.2f}" for lbl, val in zip(labels, sizes)]
+        #normal legend
+        #legend_labels = [f"{lbl}: ${val:.2f}" for lbl, val in zip(labels, sizes)]
+        # --- Truncate long labels for legend display ---
+        def shorten_label(label, max_length=15):
+            return label if len(label) <= max_length else label[:max_length - 3] + "..."
+        legend_labels = [f"{shorten_label(lbl)}: ${val:.2f}" for lbl, val in zip(labels, sizes)]
         self.ax.legend(wedges,legend_labels,loc="center left",bbox_to_anchor=(1.05, 0.5),fontsize=8,frameon=False)
 
         # --- Title and total below ---
@@ -74,6 +87,26 @@ class PieChartCanvas(FigureCanvas):
         self.ax.axis("equal")
         self.fig.tight_layout()
         self.draw()
+
+        self._wedges = wedges
+        self._labels = labels
+
+    def on_pick(self, event):
+        if not hasattr(event, "artist"):
+            return
+
+        wedge = event.artist
+        label = wedge.get_label() if hasattr(wedge, "get_label") else None
+
+        # fallback: find which wedge was clicked based on its index
+        if not label and hasattr(self, "_labels"):
+            for i, w in enumerate(self._wedges):
+                if wedge == w:
+                    label = self._labels[i]
+                    break
+
+        if label and self.on_slice_click:
+            self.on_slice_click(self.title, label)
 
 
 class ExpenseTracker(QMainWindow):
@@ -401,6 +434,8 @@ class ExpenseTracker(QMainWindow):
         self.pie_main = PieChartCanvas("Main Categories")
         self.pie_daily = PieChartCanvas("Daily Expenses")
         self.pie_month = PieChartCanvas("Month Expenses")
+        self.pie_daily = PieChartCanvas("Daily Mid Categories", self.handle_pie_click)
+        self.pie_month = PieChartCanvas("Month Mid Categories", self.handle_pie_click)
 
         pie_layout = QHBoxLayout()
         pie_layout.addWidget(self.pie_main)
@@ -425,6 +460,10 @@ class ExpenseTracker(QMainWindow):
         totals_layout.addWidget(self.label_month_total)
 
         layout.addLayout(totals_layout)'''
+
+        self.btn_reset_pies = QPushButton("🔙 Back to Main View")
+        self.btn_reset_pies.clicked.connect(self.reset_pies)
+        layout.addWidget(self.btn_reset_pies)
 
         widget.setLayout(layout)
 
@@ -563,6 +602,37 @@ class ExpenseTracker(QMainWindow):
         #self.label_main_total.setText(f"Total: ${sum(main_totals.values()):.2f}")
         #self.label_daily_total.setText(f"Total: ${sum(daily_mid_totals.values()):.2f}")
         #self.label_month_total.setText(f"Total: ${sum(month_mid_totals.values()):.2f}")
+
+    def handle_pie_click(self, chart_title, category_clicked):
+        print(f"[DEBUG] Clicked on {category_clicked} in {chart_title}")
+
+        if chart_title == "Daily Mid Categories":
+            subs = self.get_sub_totals("Daily Expenses", category_clicked)
+            self.pie_daily.plot_pie(subs)
+            self.current_daily_mid = category_clicked  # track state
+
+        elif chart_title == "Month Mid Categories":
+            subs = self.get_sub_totals("Month Expenses", category_clicked)
+            self.pie_month.plot_pie(subs)
+            self.current_month_mid = category_clicked
+
+    def get_sub_totals(self, main_category, mid_category):
+        from collections import defaultdict
+        subs = defaultdict(float)
+
+        expenses = reports.get_expenses_by_date_range(
+            self.start_date.date().toString("yyyy-MM-dd"),
+            self.end_date.date().toString("yyyy-MM-dd")
+        )
+
+        for exp in expenses:
+            if exp[1] == main_category and exp[2] == mid_category:
+                subs[exp[3]] += float(exp[5])
+
+        return dict(subs)
+
+    def reset_pies(self):
+        self.update_pie_charts()
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
