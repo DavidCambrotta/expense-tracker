@@ -167,11 +167,8 @@ Expense Tracker App – Roadmap
         Pie chart → expenses by category
         Bar chart → monthly totals
         Line chart → expense trend over time
-
-
-        Next??
-        clear charts button,
-        chart labels? totals inside charts?..
-        add a small “Total per chart” label below each pie
-        pie colors consistent across sessions
-        if click in mid category, change pie for sub categories inside the mid category clicked
+    Improvements
+        Clear charts button
+        Add a small “Total per chart” label right side of each pie
+        Pie colors consistent across sessions
+        Ff click in mid category, change pie for sub categories inside the mid category clicked

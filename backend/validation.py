@@ -5,13 +5,13 @@ CATEGORIES = {
     "Daily Expenses": {
         "Groceries": ["Food", "Others"],
         "Going Out": ["Restaurant", "Night Out", "Others"],
-        "Transportation": ["Gasoline", "Trans/Bus", "Uber", "Vacation"],
+        "Transportation": ["Gas", "Train/Bus", "Uber"],
         "Others": ["Health", "Cloths", "Sports", "Others"]
     },
     "Month Expenses": {
         "Rent": None,
         "Utilities": None,
-        "Subscriptions": ["Phone", "Gym", "Cloud", "Cloud"]
+        "Subscriptions": ["Phone", "Gym", "Cloud", "Netflix", "Bolt"]
     }
 }
 

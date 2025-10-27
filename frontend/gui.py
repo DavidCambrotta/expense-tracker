@@ -12,50 +12,142 @@ from backend.validation import CATEGORIES
 from datetime import date, timedelta
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
+from matplotlib.animation import FuncAnimation
 from collections import defaultdict
+import matplotlib as mpl
+import numpy as np
 
 class PieChartCanvas(FigureCanvas):
-    def __init__(self, title):
-        self.fig = Figure(figsize=(3, 3), tight_layout=True)
+    COLOR_MAP = {}  # stores persistent colors for labels
+    PALETTE = list(mpl.colormaps["tab20"].colors)  # 20 distinct colors
+
+    def __init__(self, title, on_slice_click=None):
+        self.fig = Figure(figsize=(3, 3))
         super().__init__(self.fig)
         self.ax = self.fig.add_subplot(111)
         self.title = title
-        self.setMinimumSize(260, 260)  # ensure visible area
+        self.on_slice_click = on_slice_click  # callback from parent
         self.draw_empty()
+
+        # enable picking (click detection)
+        self.mpl_connect("pick_event", self.on_pick)
 
     def draw_empty(self):
         self.ax.clear()
-        self.ax.text(0.5, 0.5, "No Data", ha="center", va="center",
-                     fontsize=12, color="gray")
+        self.ax.text(0.5, 0.5, "No Data", ha="center", va="center", fontsize=12, color="gray")
         self.ax.set_title(self.title)
         self.ax.axis("off")
-        self.draw_idle()  # ✅ ensures redraw inside Qt
+        self.draw()
 
     def plot_pie(self, data_dict):
         self.ax.clear()
-        self.ax.set_aspect('equal', 'box')  # keep circle shape
 
-        if not data_dict:
+        if not data_dict or sum(data_dict.values()) == 0:
             self.draw_empty()
             return
 
         labels = list(data_dict.keys())
         sizes = list(data_dict.values())
+        total = sum(sizes)
 
-        if sum(sizes) == 0:
+        # assign colors deterministically
+        for label in labels:
+            if label not in PieChartCanvas.COLOR_MAP:
+                idx = len(PieChartCanvas.COLOR_MAP) % len(PieChartCanvas.PALETTE)
+                PieChartCanvas.COLOR_MAP[label] = PieChartCanvas.PALETTE[idx]
+
+        colors = [PieChartCanvas.COLOR_MAP[label] for label in labels]
+
+        wedges, texts, autotexts = self.ax.pie(
+            sizes,
+            colors=colors,
+            startangle=140,
+            autopct="%1.1f%%", #autopct=lambda p: f"{p:.1f}%\n(${p * total / 100:.2f})"  -> for % + $
+            textprops={'color': 'white', 'fontsize': 9},
+            wedgeprops={'picker': True})  # enable clicking wedges
+
+        # --- Legend on the right ---
+        #normal legend
+        #legend_labels = [f"{lbl}: ${val:.2f}" for lbl, val in zip(labels, sizes)]
+        # --- Truncate long labels for legend display ---
+        def shorten_label(label, max_length=15):
+            if not label:
+                return "Unknown"
+            label = str(label)
+            return label if len(label) <= max_length else label[:max_length - 3] + "..."
+        legend_labels = [f"{shorten_label(lbl)}: ${val:.2f}" for lbl, val in zip(labels, sizes)]
+        self.ax.legend(wedges,legend_labels,loc="center left",bbox_to_anchor=(1.05, 0.5),fontsize=8,frameon=False)
+
+        # --- Title and total below ---
+        self.ax.set_title(self.title, fontsize=12, fontweight="bold", pad=20)
+        self.ax.text(0.5, -0.2,f"Total: ${total:.2f}",ha="center",fontsize=10,color="#333",fontweight="bold",transform=self.ax.transAxes)
+
+        self.ax.axis("equal")
+        self.fig.tight_layout()
+        self.draw()
+
+        self._wedges = wedges
+        self._labels = labels
+        self._current_data = data_dict
+
+    def animate_transition(self, new_data_dict):
+        """Animate a smooth transition from current pie to new pie."""
+        old_data = getattr(self, "_current_data", {})
+        old_labels = list(old_data.keys())
+        old_sizes = list(old_data.values())
+
+        new_labels = list(new_data_dict.keys())
+        new_sizes = list(new_data_dict.values())
+
+        if not new_labels or sum(new_sizes) == 0:
             self.draw_empty()
             return
 
-        self.ax.pie(
-            sizes,
-            labels=labels,
-            autopct="%1.1f%%",
-            startangle=140,
-            textprops={'fontsize': 8},
-        )
-        self.ax.set_title(self.title)
-        self.fig.tight_layout()  # align all pies nicely
-        self.draw()
+        # If old pie doesn't exist, just draw new one
+        if not old_labels or len(old_sizes) != len(new_sizes):
+            self.plot_pie(new_data_dict)
+            return
+
+        # Normalize data lengths by zero-padding shorter one
+        max_len = max(len(old_sizes), len(new_sizes))
+        while len(old_sizes) < max_len:
+            old_sizes.append(0)
+        while len(new_sizes) < max_len:
+            new_sizes.append(0)
+
+        # Generate interpolated frames between old and new
+        frames = 20
+        def interpolate(i):
+            alpha = i / frames
+            interpolated = [
+                old_sizes[j] * (1 - alpha) + new_sizes[j] * alpha
+                for j in range(max_len)
+            ]
+            data_dict = {
+                (new_labels[j] if j < len(new_labels) else old_labels[j]): interpolated[j]
+                for j in range(max_len)
+            }
+            self.plot_pie(data_dict)
+
+        FuncAnimation(self.fig, interpolate, frames=frames, interval=50, repeat=False)
+        self._current_data = new_data_dict
+
+    def on_pick(self, event):
+        if not hasattr(event, "artist"):
+            return
+
+        wedge = event.artist
+        label = wedge.get_label() if hasattr(wedge, "get_label") else None
+
+        # fallback: find which wedge was clicked based on its index
+        if not label and hasattr(self, "_labels"):
+            for i, w in enumerate(self._wedges):
+                if wedge == w:
+                    label = self._labels[i]
+                    break
+
+        if label and self.on_slice_click:
+            self.on_slice_click(self.title, label)
 
 class ExpenseTracker(QMainWindow):
     def __init__(self):
@@ -313,7 +405,7 @@ class ExpenseTracker(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, "Error", str(e))
 
-# ---------------- Reports  Tab ----------------
+    # ---------------- Reports  Tab ----------------
     def reports_tab(self):
         widget = QWidget()
         layout = QVBoxLayout()
@@ -382,6 +474,8 @@ class ExpenseTracker(QMainWindow):
         self.pie_main = PieChartCanvas("Main Categories")
         self.pie_daily = PieChartCanvas("Daily Expenses")
         self.pie_month = PieChartCanvas("Month Expenses")
+        self.pie_daily = PieChartCanvas("Daily Mid Categories", self.handle_pie_click)
+        self.pie_month = PieChartCanvas("Month Mid Categories", self.handle_pie_click)
 
         pie_layout = QHBoxLayout()
         pie_layout.addWidget(self.pie_main)
@@ -390,6 +484,26 @@ class ExpenseTracker(QMainWindow):
 
         #layout.addWidget(QLabel("Category Breakdown (Global)"))
         layout.addLayout(pie_layout)
+
+        # --- Totals Labels (below each pie) ---
+        '''totals_layout = QHBoxLayout()
+        self.label_main_total = QLabel("Total: $0.00")
+        self.label_daily_total = QLabel("Total: $0.00")
+        self.label_month_total = QLabel("Total: $0.00")
+
+        for lbl in [self.label_main_total, self.label_daily_total, self.label_month_total]:
+            lbl.setAlignment(Qt.AlignCenter)
+            lbl.setStyleSheet("font-size: 14px; font-weight: bold; color: #444;")
+
+        totals_layout.addWidget(self.label_main_total)
+        totals_layout.addWidget(self.label_daily_total)
+        totals_layout.addWidget(self.label_month_total)
+
+        layout.addLayout(totals_layout)'''
+
+        self.btn_reset_pies = QPushButton("🔙 Back to Main View")
+        self.btn_reset_pies.clicked.connect(self.reset_pies)
+        layout.addWidget(self.btn_reset_pies)
 
         widget.setLayout(layout)
 
@@ -523,6 +637,62 @@ class ExpenseTracker(QMainWindow):
         self.pie_main.plot_pie(main_totals)
         self.pie_daily.plot_pie(daily_mid_totals)
         self.pie_month.plot_pie(month_mid_totals)
+
+        # Draw labels
+        #self.label_main_total.setText(f"Total: ${sum(main_totals.values()):.2f}")
+        #self.label_daily_total.setText(f"Total: ${sum(daily_mid_totals.values()):.2f}")
+        #self.label_month_total.setText(f"Total: ${sum(month_mid_totals.values()):.2f}")
+
+    def handle_pie_click(self, chart_title, category_clicked):
+        print(f"[DEBUG] Clicked on {category_clicked} in {chart_title}")
+
+        if chart_title == "Daily Mid Categories":
+            subs = self.get_sub_totals("Daily Expenses", category_clicked)
+            self.pie_daily.plot_pie(subs)
+            self.current_daily_mid = category_clicked  # track state
+
+        elif chart_title == "Month Mid Categories":
+            subs = self.get_sub_totals("Month Expenses", category_clicked)
+            self.pie_month.plot_pie(subs)
+            self.current_month_mid = category_clicked
+
+    def get_sub_totals(self, main_category, mid_category):
+        from collections import defaultdict
+        subs = defaultdict(float)
+
+        expenses = reports.get_expenses_by_date_range(
+            self.start_date.date().toString("yyyy-MM-dd"),
+            self.end_date.date().toString("yyyy-MM-dd")
+        )
+
+        for exp in expenses:
+            if exp[1] == main_category and exp[2] == mid_category:
+                subs[exp[3]] += float(exp[5])
+
+        return dict(subs)
+
+    def reset_pies(self):
+        if hasattr(self, "pie_daily"):
+            main_data = self.get_mid_totals("Daily Expenses")
+            self.pie_daily.animate_transition(main_data)
+
+        if hasattr(self, "pie_month"):
+            month_data = self.get_mid_totals("Month Expenses")
+            self.pie_month.animate_transition(month_data)
+
+    def get_mid_totals(self, main_category):
+        from collections import defaultdict
+        mids = defaultdict(float)
+        expenses = reports.get_expenses_by_date_range(
+            self.start_date.date().toString("yyyy-MM-dd"),
+            self.end_date.date().toString("yyyy-MM-dd")
+        )
+
+        for exp in expenses:
+            if exp[1] == main_category:
+                mids[exp[2]] += float(exp[5])
+        return dict(mids)
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
