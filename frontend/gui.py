@@ -50,7 +50,6 @@ class PieChartCanvas(FigureCanvas):
         sizes = list(data_dict.values())
         total = sum(sizes)
 
-
         # assign colors deterministically
         for label in labels:
             if label not in PieChartCanvas.COLOR_MAP:
@@ -59,24 +58,22 @@ class PieChartCanvas(FigureCanvas):
 
         colors = [PieChartCanvas.COLOR_MAP[label] for label in labels]
 
-        #Plot pie just with percentage 
-        #self.ax.pie(sizes, labels=labels, autopct="%1.1f%%", startangle=140, colors=colors)
-        #or percentage + total
-        #self.ax.pie(sizes, labels=labels, autopct=lambda p: f"{p:.1f}%\n(${p * total / 100:.2f})", startangle=140, colors=colors)
-        #self.ax.set_title(self.title)
         wedges, texts, autotexts = self.ax.pie(
             sizes,
             colors=colors,
             startangle=140,
-            autopct="%1.1f%%",
+            autopct="%1.1f%%", #autopct=lambda p: f"{p:.1f}%\n(${p * total / 100:.2f})"  -> for % + $
             textprops={'color': 'white', 'fontsize': 9},
-            wedgeprops={'picker': True}  # enable clicking wedges
-)
+            wedgeprops={'picker': True})  # enable clicking wedges
+
         # --- Legend on the right ---
         #normal legend
         #legend_labels = [f"{lbl}: ${val:.2f}" for lbl, val in zip(labels, sizes)]
         # --- Truncate long labels for legend display ---
         def shorten_label(label, max_length=15):
+            if not label:
+                return "Unknown"
+            label = str(label)
             return label if len(label) <= max_length else label[:max_length - 3] + "..."
         legend_labels = [f"{shorten_label(lbl)}: ${val:.2f}" for lbl, val in zip(labels, sizes)]
         self.ax.legend(wedges,legend_labels,loc="center left",bbox_to_anchor=(1.05, 0.5),fontsize=8,frameon=False)
@@ -135,7 +132,6 @@ class PieChartCanvas(FigureCanvas):
         FuncAnimation(self.fig, interpolate, frames=frames, interval=50, repeat=False)
         self._current_data = new_data_dict
 
-
     def on_pick(self, event):
         if not hasattr(event, "artist"):
             return
@@ -152,7 +148,6 @@ class PieChartCanvas(FigureCanvas):
 
         if label and self.on_slice_click:
             self.on_slice_click(self.title, label)
-
 
 class ExpenseTracker(QMainWindow):
     def __init__(self):
