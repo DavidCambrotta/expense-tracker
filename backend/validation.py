@@ -6,11 +6,13 @@ CATEGORIES = {
         "Groceries": ["Food", "Others"],
         "Going Out": ["Restaurant", "Night Out", "Others"],
         "Transportation": ["Gas", "Train/Bus", "Uber"],
-        "Others": ["Health", "Cloths", "Sports", "Others"]
+        "Health": ["Appointments", "Exams", "Pharmacy"],
+        "Others": ["Cloths", "Sports", "Others"]
     },
     "Month Expenses": {
         "Rent": None,
         "Utilities": None,
+        "Vacation":["Food", "Hotels", "Transports", "Flights", "Others"],
         "Subscriptions": ["Phone", "Gym", "Cloud", "Netflix", "Bolt"]
     }
 }
