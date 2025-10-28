@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (
     QDateEdit, QMessageBox, QHBoxLayout, QSpinBox, QHeaderView
 )
 from PySide6.QtCore import QDate, Qt
+from PySide6.QtGui import QColor, QFont
 from backend import crud, reports
 from backend.validation import CATEGORIES
 from datetime import date, datetime, timedelta
@@ -17,6 +18,7 @@ from collections import defaultdict
 import matplotlib as mpl
 import numpy as np
 import calendar
+from itertools import groupby
 
 class PieChartCanvas(FigureCanvas):
     COLOR_MAP = {}  # stores persistent colors for labels
@@ -475,8 +477,6 @@ class ExpenseTracker(QMainWindow):
 
         # --- Pie Charts ---
         self.pie_main = PieChartCanvas("Main Categories")
-        self.pie_daily = PieChartCanvas("Daily Expenses")
-        self.pie_month = PieChartCanvas("Month Expenses")
         self.pie_daily = PieChartCanvas("Daily Mid Categories", self.handle_pie_click)
         self.pie_month = PieChartCanvas("Month Mid Categories", self.handle_pie_click)
 
@@ -525,51 +525,22 @@ class ExpenseTracker(QMainWindow):
         if sub == "":
             sub = None
 
-        # --- logic ---
-        total = reports.get_total_filtered(main, mid, sub, start, end)
+        try:
+            total = reports.get_total_filtered(main=main or None,
+                                            mid=mid or None,
+                                            sub=sub or None,
+                                            start=start or None,
+                                            end=end or None)
+        except Exception:
+            # fallback: if get_total_filtered not present or fails, set 0
+            total = 0.0
 
-        filters = []
-        if main:
-            filters.append(main)
-        if mid:
-            filters.append(mid)
-        if sub:
-            filters.append(sub)
-
+        filters = [x for x in (main, mid, sub) if x]
         filter_text = " > ".join(filters) if filters else "All Categories"
-        summary_text = f"💰 Total from {start} to {end} for {filter_text}: ${total:.2f}"
+        self.report_result_label.setText(f"💰 Total from {start} to {end} for {filter_text}: ${total:.2f}")
 
-        # --- Generate Pie Chart Data ---
-        from collections import defaultdict
-
-        expenses = reports.expenses = reports.get_expenses_filtered(
-            main=main or None,
-            mid=mid or None,
-            sub=sub or None,
-            start=start or None,
-            end=end or None
-        )
-
-        main_totals = defaultdict(float)
-        mid_totals = defaultdict(float)
-        sub_totals = defaultdict(float)
-
-        for exp in expenses:
-            try:
-                value = float(exp[4])  # Convert safely
-            except (ValueError, TypeError):
-                value = 0.0
-
-            main_totals[exp[1]] += value
-            mid_totals[exp[2]] += value
-            sub_totals[exp[3]] += value
-
-        # --- Update Pie Charts ---
-        self.pie_main.plot_pie(main_totals)
-        self.pie_mid.plot_pie(mid_totals)
-        self.pie_sub.plot_pie(sub_totals)
-
-        self.report_result_label.setText(summary_text)
+        # update pies (shares logic with the existing function that reads start/end)
+        self.update_pie_charts()
 
     def update_mid_box(self, main):
         self.mid_box.clear()
@@ -838,6 +809,7 @@ class ExpenseTracker(QMainWindow):
         return cols
 
     def load_month_grid(self):
+        # ensure planner maps exist
         if not hasattr(self, "_planner_daily_columns"):
             self._planner_daily_columns = self._build_daily_columns()
         if not hasattr(self, "_planner_daily_id_map"):
@@ -845,99 +817,101 @@ class ExpenseTracker(QMainWindow):
         if not hasattr(self, "_planner_month_id_map"):
             self._planner_month_id_map = {}
 
-        """Adjust table size for selected month/year, highlight weekends, load DB data."""
         year = int(self.year_combo_planner.currentText())
         month = list(calendar.month_name).index(self.month_combo_planner.currentText())
         num_days = calendar.monthrange(year, month)[1]
 
-        # Columns: first column is "Day" label, then one column per (mid,sub)
-        cols = self._planner_daily_columns
-        col_count = 1 + len(cols)
-        row_count = 2 + num_days  # row0 mid headers, row1 sub headers, rows 2.. -> days 1..n
+        cols_list = self._planner_daily_columns              # list of (mid, sub)
+        col_count = 1 + len(cols_list)
+        row_count = 2 + num_days  # two header rows + days
 
+        # Reset table
         self.daily_table.clear()
         self.daily_table.setColumnCount(col_count)
         self.daily_table.setRowCount(row_count)
-        # set headers for columns (col 0 blank)
-        header_labels = ["Day"] + [f"{mid}\n{sub}" if sub else f"{mid}" for mid, sub in cols]
+        header_labels = ["Day"] + [f"{mid}\n{sub}" if sub else f"{mid}" for mid, sub in cols_list]
         self.daily_table.setHorizontalHeaderLabels(header_labels)
         self.daily_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        # fill top two rows: mid and sub as visual header rows (non-editable)
-        for c, (mid, sub) in enumerate(cols, start=1):
-            mid_item = QTableWidgetItem(mid)
-            mid_item.setFlags(mid_item.flags() & ~Qt.ItemIsEditable)
-            sub_item = QTableWidgetItem(sub or "")
-            sub_item.setFlags(sub_item.flags() & ~Qt.ItemIsEditable)
-            self.daily_table.setItem(0, c, mid_item)
-            self.daily_table.setItem(1, c, sub_item)
 
-        # fill day column and empty editable cells
-        year_val, month_val = year, month
+        # Header row 0: "Daily Expenses" spanning from column 1..end (leave Day column alone)
+        if col_count > 1:
+            self.daily_table.setSpan(0, 1, 1, col_count - 1)
+            top_item = QTableWidgetItem("Daily Expenses")
+            top_item.setTextAlignment(Qt.AlignCenter)
+            top_item.setFlags(top_item.flags() & ~Qt.ItemIsEditable)
+            self.daily_table.setItem(0, 1, top_item)
+
+        # Header row 1: mid categories grouped (merge neighboring columns with same mid)
+        col_idx = 1
+        for mid, group in groupby(cols_list, key=lambda x: x[0]):
+            group_list = list(group)
+            span_len = len(group_list)
+            self.daily_table.setSpan(1, col_idx, 1, span_len)
+            mid_item = QTableWidgetItem(mid)
+            mid_item.setTextAlignment(Qt.AlignCenter)
+            mid_item.setFlags(mid_item.flags() & ~Qt.ItemIsEditable)
+            self.daily_table.setItem(1, col_idx, mid_item)
+            col_idx += span_len
+
+        # Fill day rows (rows 2..)
         for i in range(num_days):
             day = i + 1
             row = 2 + i
-            # Day label in column 0
             day_item = QTableWidgetItem(str(day))
             day_item.setFlags(day_item.flags() & ~Qt.ItemIsEditable)
             self.daily_table.setItem(row, 0, day_item)
 
-            # weekdays for coloring
-            dt = datetime(year_val, month_val, day)
-            is_weekend = dt.weekday() >= 5  # 5=Sat,6=Sun
+            dt = datetime(year, month, day)
+            is_weekend = dt.weekday() >= 5
             for c in range(1, col_count):
-                item = QTableWidgetItem("")  # empty cell for value
-                # allow editing
+                item = QTableWidgetItem("")
                 self.daily_table.setItem(row, c, item)
                 if is_weekend:
-                    item.setBackground(Qt.lightGray)  # light blue-ish substitute (Qt has limited colors)
-                # ensure numeric input will be validated on Save
+                    item.setBackground(QColor("#E8F4FF"))  # light blue
+                # editable cells — validation on save
 
-        # clear id map and then load existing DB entries for the month
+        # reload saved ids and values
         self._planner_daily_id_map.clear()
-        start = f"{year_val:04d}-{month_val:02d}-01"
-        end = f"{year_val:04d}-{month_val:02d}-{num_days:02d}"
+        start = f"{year:04d}-{month:02d}-01"
+        end = f"{year:04d}-{month:02d}-{num_days:02d}"
         try:
             expenses = reports.get_expenses_by_date_range(start, end)
         except Exception:
-            # fallback: use crud.get_expenses(year=..., month=...) if available
             try:
-                expenses = crud.get_expenses(year=year_val, month=month_val)
+                expenses = crud.get_expenses(year=year, month=month)
             except Exception:
                 expenses = []
-        # expenses expected as tuples: (id, main, mid, sub, date, value, notes)
+
         for exp in expenses:
             try:
-                exp_id = exp[0]
-                main = exp[1]
-                mid = exp[2]
-                sub = exp[3]
-                date_str = exp[4]
-                val = exp[5]
-                # only daily expenses here
+                exp_id, main, mid, sub, date_str, val, notes = exp
                 if main != "Daily Expenses":
                     continue
                 exp_date = datetime.strptime(date_str, "%Y-%m-%d")
-                if exp_date.year != year_val or exp_date.month != month_val:
+                if exp_date.year != year or exp_date.month != month:
                     continue
                 day = exp_date.day
-                # find column index for (mid,sub)
+                # find col for (mid, sub)
                 try:
-                    col_index = 1 + cols.index((mid, sub if sub else ""))
+                    col_index = 1 + cols_list.index((mid, sub if sub else ""))
                 except ValueError:
-                    # maybe stored with sub empty string vs None
                     try:
-                        col_index = 1 + cols.index((mid, sub or ""))
+                        col_index = 1 + cols_list.index((mid, sub or ""))
                     except ValueError:
                         continue
                 row = 2 + (day - 1)
-                # set value string
-                self.daily_table.item(row, col_index).setText(str(val))
+                cell_item = self.daily_table.item(row, col_index)
+                if cell_item:
+                    cell_item.setText(str(val))
+                else:
+                    self.daily_table.setItem(row, col_index, QTableWidgetItem(str(val)))
                 self._planner_daily_id_map[(row, col_index)] = exp_id
             except Exception:
                 continue
 
-        # load month expenses table on right
-        self.load_month_table(year_val, month_val)
+        # finally load month table
+        self.load_month_table(year, month)
+
 
     def on_vacation_toggle(self, text):
         if text == "Yes":
