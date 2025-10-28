@@ -768,6 +768,12 @@ class ExpenseTracker(QMainWindow):
 
         # --- Left: Daily grid table ---
         self.daily_table = QTableWidget()
+
+        self.daily_table.verticalHeader().setVisible(False)
+        self.daily_table.horizontalHeader().setDefaultAlignment(Qt.AlignCenter)
+        self.daily_table.setAlternatingRowColors(False)
+        self.daily_table.setShowGrid(True)  # keep cell lines visible
+
         self.daily_table.setEditTriggers(QTableWidget.AllEditTriggers)
         self.daily_table.setSelectionBehavior(QTableWidget.SelectItems)
         self.daily_table.setSelectionMode(QTableWidget.SingleSelection)
@@ -775,6 +781,7 @@ class ExpenseTracker(QMainWindow):
 
         # --- Right: Month expenses small table ---
         self.month_table = QTableWidget()
+        self.month_table.verticalHeader().setVisible(False)
         self.month_table.setColumnCount(3)
         self.month_table.setHorizontalHeaderLabels(["Category", "Value", "Notes"])
         self.month_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
@@ -831,6 +838,13 @@ class ExpenseTracker(QMainWindow):
         return cols
 
     def load_month_grid(self):
+        if not hasattr(self, "_planner_daily_columns"):
+            self._planner_daily_columns = self._build_daily_columns()
+        if not hasattr(self, "_planner_daily_id_map"):
+            self._planner_daily_id_map = {}
+        if not hasattr(self, "_planner_month_id_map"):
+            self._planner_month_id_map = {}
+
         """Adjust table size for selected month/year, highlight weekends, load DB data."""
         year = int(self.year_combo_planner.currentText())
         month = int(self.month_combo_planner.currentText())
