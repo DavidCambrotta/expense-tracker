@@ -4,18 +4,19 @@ from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout,
     QTabWidget, QLabel, QPushButton, QFormLayout,
     QComboBox, QLineEdit, QTextEdit, QTableWidget, QTableWidgetItem,
-    QDateEdit, QMessageBox, QHBoxLayout
+    QDateEdit, QMessageBox, QHBoxLayout, QSpinBox, QHeaderView
 )
 from PySide6.QtCore import QDate, Qt
 from backend import crud, reports
 from backend.validation import CATEGORIES
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from matplotlib.animation import FuncAnimation
 from collections import defaultdict
 import matplotlib as mpl
 import numpy as np
+import calendar
 
 class PieChartCanvas(FigureCanvas):
     COLOR_MAP = {}  # stores persistent colors for labels
@@ -160,7 +161,9 @@ class ExpenseTracker(QMainWindow):
 
         self.tabs.addTab(self.add_expense_tab(), "➕ Add Expense")
         self.tabs.addTab(self.list_expenses_tab(), "📋 List Expenses")
+        self.tabs.addTab(self.monthly_planner_tab(), "📊 Monthly Planner")
         self.tabs.addTab(self.reports_tab(), "📊 Reports")
+        
 
     # ---------------- Add Expense Tab ----------------
     def add_expense_tab(self):
@@ -692,6 +695,533 @@ class ExpenseTracker(QMainWindow):
             if exp[1] == main_category:
                 mids[exp[2]] += float(exp[5])
         return dict(mids)
+
+    # ---------------- Monthly Planner  Tab ----------------
+
+    def monthly_planner_tab(self):
+        """Create the Monthly Planner tab widget."""
+        widget = QWidget()
+        outer = QVBoxLayout(widget)
+
+        # --- Top controls row (left spacer, right controls) ---
+        top_row = QHBoxLayout()
+        top_row.addWidget(QLabel(""), 1)  # spacer on left (keeps left area free)
+
+        controls = QHBoxLayout()
+        # Year combo (last 10 years)
+        self.year_combo_planner = QComboBox()
+        current_year = date.today().year
+        years = [str(y) for y in range(current_year, current_year - 10, -1)]
+        self.year_combo_planner.addItems(years)
+
+        # Month combo
+        self.month_combo_planner = QComboBox()
+        self.month_combo_planner.addItems([f"{i:02d}" for i in range(1, 13)])
+
+        controls.addWidget(QLabel("Year:"))
+        controls.addWidget(self.year_combo_planner)
+        controls.addSpacing(8)
+        controls.addWidget(QLabel("Month:"))
+        controls.addWidget(self.month_combo_planner)
+        controls.addSpacing(16)
+
+        # Vacation controls
+        self.vacation_combo = QComboBox()
+        self.vacation_combo.addItems(["No", "Yes"])
+        controls.addWidget(QLabel("Vacation:"))
+        controls.addWidget(self.vacation_combo)
+
+        self.vac_start = QDateEdit()
+        self.vac_start.setCalendarPopup(True)
+        self.vac_end = QDateEdit()
+        self.vac_end.setCalendarPopup(True)
+        self.vac_sub_combo = QComboBox()
+        # populate with vacation subcategories from CATEGORIES if present:
+        vac_subs = []
+        if "Vacation" in CATEGORIES.get("Month Expenses", {}):
+            subs = CATEGORIES["Month Expenses"]["Vacation"]
+            if subs:
+                vac_subs = subs
+        self.vac_sub_combo.addItems(vac_subs or ["Others"])
+        self.vac_ok_btn = QPushButton("OK")
+        controls.addWidget(self.vac_start)
+        controls.addWidget(self.vac_end)
+        controls.addWidget(QLabel("Vac Sub:"))
+        controls.addWidget(self.vac_sub_combo)
+        controls.addWidget(self.vac_ok_btn)
+
+        # Buttons (Update/Delete/Save)
+        controls.addSpacing(12)
+        self.update_cell_btn = QPushButton("Update")
+        self.delete_cell_btn = QPushButton("Delete")
+        self.save_all_btn = QPushButton("Save")
+        controls.addWidget(self.update_cell_btn)
+        controls.addWidget(self.delete_cell_btn)
+        controls.addWidget(self.save_all_btn)
+
+        # pack top row
+        top_row.addLayout(controls)
+        outer.addLayout(top_row)
+
+        # --- Main area: split horizontal (left daily grid, right month table) ---
+        main_h = QHBoxLayout()
+
+        # --- Left: Daily grid table ---
+        self.daily_table = QTableWidget()
+        self.daily_table.setEditTriggers(QTableWidget.AllEditTriggers)
+        self.daily_table.setSelectionBehavior(QTableWidget.SelectItems)
+        self.daily_table.setSelectionMode(QTableWidget.SingleSelection)
+        # we'll set row/column counts in load_month_grid()
+
+        # --- Right: Month expenses small table ---
+        self.month_table = QTableWidget()
+        self.month_table.setColumnCount(3)
+        self.month_table.setHorizontalHeaderLabels(["Category", "Value", "Notes"])
+        self.month_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.month_table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.month_table.setSelectionMode(QTableWidget.SingleSelection)
+
+        main_h.addWidget(self.daily_table, 3)
+        main_h.addWidget(self.month_table, 1)
+        outer.addLayout(main_h)
+
+        # --- Bottom status label ---
+        self.planner_status_label = QLabel("")
+        outer.addWidget(self.planner_status_label)
+
+        # --- Signals ---
+        self.year_combo_planner.currentIndexChanged.connect(self.load_month_grid)
+        self.month_combo_planner.currentIndexChanged.connect(self.load_month_grid)
+        self.vacation_combo.currentTextChanged.connect(self.on_vacation_toggle)
+        self.vac_ok_btn.clicked.connect(self.apply_vacation_selection)
+
+        self.update_cell_btn.clicked.connect(self.update_selected_cell)
+        self.delete_cell_btn.clicked.connect(self.delete_selected_cell)
+        self.save_all_btn.clicked.connect(self.save_planner)
+
+        # initialize
+        self.vac_start.hide(); self.vac_end.hide(); self.vac_sub_combo.hide(); self.vac_ok_btn.hide()
+        # set defaults to current month/year
+        self.year_combo_planner.setCurrentText(str(current_year))
+        self.month_combo_planner.setCurrentIndex(date.today().month - 1)
+
+        # build columns from CATEGORIES["Daily Expenses"]
+        self._planner_daily_columns = self._build_daily_columns()  # list of (mid, sub)
+        # maps for tracking expense ids on grid: (row, col) -> expense_id
+        self._planner_daily_id_map = {}
+        self._planner_month_id_map = {}  # row -> expense_id
+
+        # Fill month
+        self.load_month_grid()
+
+        return widget
+
+    # ---------------- helper methods ----------------
+
+    def _build_daily_columns(self):
+        """Return list of (mid, sub) tuples for all Daily Expenses columns."""
+        cols = []
+        daily = CATEGORIES.get("Daily Expenses", {})
+        for mid, subs in daily.items():
+            if subs is None:
+                cols.append((mid, ""))  # no sub
+            else:
+                for sub in subs:
+                    cols.append((mid, sub))
+        return cols
+
+    def load_month_grid(self):
+        """Adjust table size for selected month/year, highlight weekends, load DB data."""
+        year = int(self.year_combo_planner.currentText())
+        month = int(self.month_combo_planner.currentText())
+        num_days = calendar.monthrange(year, month)[1]
+
+        # Columns: first column is "Day" label, then one column per (mid,sub)
+        cols = self._planner_daily_columns
+        col_count = 1 + len(cols)
+        row_count = 2 + num_days  # row0 mid headers, row1 sub headers, rows 2.. -> days 1..n
+
+        self.daily_table.clear()
+        self.daily_table.setColumnCount(col_count)
+        self.daily_table.setRowCount(row_count)
+        # set headers for columns (col 0 blank)
+        header_labels = ["Day"] + [f"{mid}\n{sub}" if sub else f"{mid}" for mid, sub in cols]
+        self.daily_table.setHorizontalHeaderLabels(header_labels)
+        self.daily_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        # fill top two rows: mid and sub as visual header rows (non-editable)
+        for c, (mid, sub) in enumerate(cols, start=1):
+            mid_item = QTableWidgetItem(mid)
+            mid_item.setFlags(mid_item.flags() & ~Qt.ItemIsEditable)
+            sub_item = QTableWidgetItem(sub or "")
+            sub_item.setFlags(sub_item.flags() & ~Qt.ItemIsEditable)
+            self.daily_table.setItem(0, c, mid_item)
+            self.daily_table.setItem(1, c, sub_item)
+
+        # fill day column and empty editable cells
+        year_val, month_val = year, month
+        for i in range(num_days):
+            day = i + 1
+            row = 2 + i
+            # Day label in column 0
+            day_item = QTableWidgetItem(str(day))
+            day_item.setFlags(day_item.flags() & ~Qt.ItemIsEditable)
+            self.daily_table.setItem(row, 0, day_item)
+
+            # weekdays for coloring
+            dt = datetime(year_val, month_val, day)
+            is_weekend = dt.weekday() >= 5  # 5=Sat,6=Sun
+            for c in range(1, col_count):
+                item = QTableWidgetItem("")  # empty cell for value
+                # allow editing
+                self.daily_table.setItem(row, c, item)
+                if is_weekend:
+                    item.setBackground(Qt.lightGray)  # light blue-ish substitute (Qt has limited colors)
+                # ensure numeric input will be validated on Save
+
+        # clear id map and then load existing DB entries for the month
+        self._planner_daily_id_map.clear()
+        start = f"{year_val:04d}-{month_val:02d}-01"
+        end = f"{year_val:04d}-{month_val:02d}-{num_days:02d}"
+        try:
+            expenses = reports.get_expenses_by_date_range(start, end)
+        except Exception:
+            # fallback: use crud.get_expenses(year=..., month=...) if available
+            try:
+                expenses = crud.get_expenses(year=year_val, month=month_val)
+            except Exception:
+                expenses = []
+        # expenses expected as tuples: (id, main, mid, sub, date, value, notes)
+        for exp in expenses:
+            try:
+                exp_id = exp[0]
+                main = exp[1]
+                mid = exp[2]
+                sub = exp[3]
+                date_str = exp[4]
+                val = exp[5]
+                # only daily expenses here
+                if main != "Daily Expenses":
+                    continue
+                exp_date = datetime.strptime(date_str, "%Y-%m-%d")
+                if exp_date.year != year_val or exp_date.month != month_val:
+                    continue
+                day = exp_date.day
+                # find column index for (mid,sub)
+                try:
+                    col_index = 1 + cols.index((mid, sub if sub else ""))
+                except ValueError:
+                    # maybe stored with sub empty string vs None
+                    try:
+                        col_index = 1 + cols.index((mid, sub or ""))
+                    except ValueError:
+                        continue
+                row = 2 + (day - 1)
+                # set value string
+                self.daily_table.item(row, col_index).setText(str(val))
+                self._planner_daily_id_map[(row, col_index)] = exp_id
+            except Exception:
+                continue
+
+        # load month expenses table on right
+        self.load_month_table(year_val, month_val)
+
+    def on_vacation_toggle(self, text):
+        if text == "Yes":
+            self.vac_start.show(); self.vac_end.show(); self.vac_sub_combo.show(); self.vac_ok_btn.show()
+            # default vac dates to current month span
+            y = int(self.year_combo_planner.currentText())
+            m = int(self.month_combo_planner.currentText())
+            self.vac_start.setDate(QDate(y, m, 1))
+            self.vac_end.setDate(QDate(y, m, calendar.monthrange(y, m)[1]))
+        else:
+            self.vac_start.hide(); self.vac_end.hide(); self.vac_sub_combo.hide(); self.vac_ok_btn.hide()
+            # remove any vacation highlighting
+            self.load_month_grid()
+
+    def apply_vacation_selection(self):
+        # read dates and highlight cells in yellow
+        start_q = self.vac_start.date()
+        end_q = self.vac_end.date()
+        start_dt = date(start_q.year(), start_q.month(), start_q.day())
+        end_dt = date(end_q.year(), end_q.month(), end_q.day())
+        if start_dt > end_dt:
+            QMessageBox.warning(self, "Vacation", "Start date must be before end date.")
+            return
+        # ensure within current month
+        y = int(self.year_combo_planner.currentText())
+        m = int(self.month_combo_planner.currentText())
+        if not (start_dt.year == y and start_dt.month == m and end_dt.year == y and end_dt.month == m):
+            QMessageBox.warning(self, "Vacation", "Vacation dates must be inside the selected month.")
+            return
+
+        # highlight
+        start_day = start_dt.day
+        end_day = end_dt.day
+        cols = self._planner_daily_columns
+        for day in range(start_day, end_day + 1):
+            row = 2 + (day - 1)
+            for col in range(1, 1 + len(cols)):
+                item = self.daily_table.item(row, col)
+                if item:
+                    item.setBackground(Qt.yellow)
+
+    def load_month_table(self, year, month):
+        """Populate the right-side Month Expenses table with categories."""
+        self.month_table.clearContents()
+        # Build rows from CATEGORIES["Month Expenses"]
+        month_cats = CATEGORIES.get("Month Expenses", {})
+        rows = []
+        for mid, subs in month_cats.items():
+            if subs is None:
+                rows.append((mid, "", ""))  # category, value, notes
+            else:
+                # if a mid has multiple subs, create rows for each sub
+                for sub in subs:
+                    rows.append((f"{mid} > {sub}", "", ""))
+
+        self.month_table.setRowCount(len(rows))
+        for r, (cat, val, notes) in enumerate(rows):
+            cat_item = QTableWidgetItem(cat)
+            cat_item.setFlags(cat_item.flags() & ~Qt.ItemIsEditable)
+            val_item = QTableWidgetItem("")  # editable
+            notes_item = QTableWidgetItem("")
+            self.month_table.setItem(r, 0, cat_item)
+            self.month_table.setItem(r, 1, val_item)
+            self.month_table.setItem(r, 2, notes_item)
+
+        # load existing month expenses from DB
+        num_days = calendar.monthrange(year, month)[1]
+        start = f"{year:04d}-{month:02d}-01"
+        end = f"{year:04d}-{month:02d}-{num_days:02d}"
+        try:
+            expenses = reports.get_expenses_by_date_range(start, end)
+        except Exception:
+            try:
+                expenses = crud.get_expenses(year=year, month=month)
+            except Exception:
+                expenses = []
+
+        # match month entries: main == "Month Expenses" => map by mid/sub
+        self._planner_month_id_map.clear()
+        for exp in expenses:
+            try:
+                exp_id = exp[0]; main = exp[1]; mid = exp[2]; sub = exp[3]; date_str = exp[4]; val = exp[5]
+                if main != "Month Expenses":
+                    continue
+                # represent category label like in table: "Mid" or "Mid > Sub"
+                if sub:
+                    label = f"{mid} > {sub}"
+                else:
+                    label = mid
+                # find row
+                for r in range(self.month_table.rowCount()):
+                    if self.month_table.item(r, 0).text() == label:
+                        self.month_table.item(r, 1).setText(str(val))
+                        self._planner_month_id_map[r] = exp_id
+                        break
+            except Exception:
+                continue
+
+    def _parse_value(self, text):
+        """Parse value text converting 12,5 to 12.5 and returning float or None."""
+        if text is None:
+            return None
+        s = str(text).strip()
+        if s == "":
+            return None
+        s = s.replace(",", ".")
+        try:
+            v = float(s)
+            return v
+        except Exception:
+            return None
+
+    def get_selected_cell_coords(self):
+        """Return ('daily', row, col) or ('month', row) or None"""
+        # check daily table selection
+        sel = self.daily_table.selectedIndexes()
+        if sel:
+            idx = sel[0]
+            row = idx.row(); col = idx.column()
+            # ensure it's a data cell (row >=2, col >=1)
+            if row >= 2 and col >= 1:
+                return ('daily', row, col)
+        # else month table
+        sel2 = self.month_table.selectedIndexes()
+        if sel2:
+            r = sel2[0].row()
+            return ('month', r)
+        return None
+
+    def update_selected_cell(self):
+        sel = self.get_selected_cell_coords()
+        if not sel:
+            QMessageBox.information(self, "Update", "Select a daily cell or month row to update.")
+            return
+        if sel[0] == 'daily':
+            _, row, col = sel
+            text = self.daily_table.item(row, col).text() if self.daily_table.item(row, col) else ""
+            v = self._parse_value(text)
+            if v is None:
+                QMessageBox.warning(self, "Update", "Enter a valid numeric value before updating.")
+                return
+            # compute date and category info
+            day = int(self.daily_table.item(row, 0).text())
+            year = int(self.year_combo_planner.currentText())
+            month = int(self.month_combo_planner.currentText())
+            date_str = f"{year:04d}-{month:02d}-{day:02d}"
+            mid, sub = self._planner_daily_columns[col - 1]
+            # if existing expense id, update, else add
+            exp_id = self._planner_daily_id_map.get((row, col))
+            try:
+                if exp_id:
+                    crud.update_expense(exp_id, "Daily Expenses", mid, sub or None, date_str, v, "")
+                else:
+                    new_id = crud.add_expense("Daily Expenses", mid, sub or None, date_str, v, "")
+                    self._planner_daily_id_map[(row, col)] = new_id
+                QMessageBox.information(self, "Updated", "Expense updated successfully.")
+            except Exception as e:
+                QMessageBox.critical(self, "Error", str(e))
+        else:
+            _, r = sel
+            text = self.month_table.item(r, 1).text() if self.month_table.item(r, 1) else ""
+            v = self._parse_value(text)
+            if v is None:
+                QMessageBox.warning(self, "Update", "Enter a valid numeric value before updating.")
+                return
+            # date = YYYY-MM-01
+            year = int(self.year_combo_planner.currentText())
+            month = int(self.month_combo_planner.currentText())
+            date_str = f"{year:04d}-{month:02d}-01"
+            label = self.month_table.item(r, 0).text()
+            # parse label into mid/sub
+            if " > " in label:
+                mid, sub = label.split(" > ", 1)
+            else:
+                mid, sub = label, None
+            exp_id = self._planner_month_id_map.get(r)
+            try:
+                if exp_id:
+                    crud.update_expense(exp_id, "Month Expenses", mid, sub, date_str, v, "")
+                else:
+                    new_id = crud.add_expense("Month Expenses", mid, sub, date_str, v, "")
+                    self._planner_month_id_map[r] = new_id
+                QMessageBox.information(self, "Updated", "Month expense updated.")
+            except Exception as e:
+                QMessageBox.critical(self, "Error", str(e))
+
+    def delete_selected_cell(self):
+        sel = self.get_selected_cell_coords()
+        if not sel:
+            QMessageBox.information(self, "Delete", "Select a daily cell or month row to delete.")
+            return
+        if sel[0] == 'daily':
+            _, row, col = sel
+            exp_id = self._planner_daily_id_map.get((row, col))
+            if not exp_id:
+                # nothing to delete
+                self.daily_table.item(row, col).setText("")
+                QMessageBox.information(self, "Delete", "No saved expense for the selected cell. Cell cleared.")
+                return
+            ok = QMessageBox.question(self, "Delete", "Delete selected expense?")
+            if ok != QMessageBox.StandardButton.Yes:
+                return
+            try:
+                crud.delete_expense(exp_id)
+                self.daily_table.item(row, col).setText("")
+                del self._planner_daily_id_map[(row, col)]
+                QMessageBox.information(self, "Deleted", "Expense deleted.")
+            except Exception as e:
+                QMessageBox.critical(self, "Error", str(e))
+        else:
+            _, r = sel
+            exp_id = self._planner_month_id_map.get(r)
+            if not exp_id:
+                for c in (1,2):
+                    self.month_table.item(r, c).setText("")
+                QMessageBox.information(self, "Delete", "No saved month expense. Row cleared.")
+                return
+            ok = QMessageBox.question(self, "Delete", "Delete selected month expense?")
+            if ok != QMessageBox.StandardButton.Yes:
+                return
+            try:
+                crud.delete_expense(exp_id)
+                for c in (1,2):
+                    self.month_table.item(r, c).setText("")
+                del self._planner_month_id_map[r]
+                QMessageBox.information(self, "Deleted", "Month expense deleted.")
+            except Exception as e:
+                QMessageBox.critical(self, "Error", str(e))
+
+    def save_planner(self):
+        """Save all non-empty cells (daily + month) to DB (batch)."""
+        year = int(self.year_combo_planner.currentText())
+        month = int(self.month_combo_planner.currentText())
+        num_days = calendar.monthrange(year, month)[1]
+        cols = self._planner_daily_columns
+
+        errors = []
+        saved_count = 0
+
+        # Daily cells
+        for i in range(num_days):
+            row = 2 + i
+            day = i + 1
+            for c in range(1, 1 + len(cols)):
+                item = self.daily_table.item(row, c)
+                text = item.text() if item else ""
+                v = self._parse_value(text)
+                if v is None:
+                    continue  # skip empty
+                date_str = f"{year:04d}-{month:02d}-{day:02d}"
+                mid, sub = cols[c - 1]
+                exp_id = self._planner_daily_id_map.get((row, c))
+                try:
+                    if exp_id:
+                        crud.update_expense(exp_id, "Daily Expenses", mid, sub or None, date_str, v, "")
+                    else:
+                        new_id = crud.add_expense("Daily Expenses", mid, sub or None, date_str, v, "")
+                        self._planner_daily_id_map[(row, c)] = new_id
+                    saved_count += 1
+                except Exception as e:
+                    errors.append(str(e))
+
+        # Month table
+        for r in range(self.month_table.rowCount()):
+            label = self.month_table.item(r, 0).text()
+            text = self.month_table.item(r, 1).text() if self.month_table.item(r, 1) else ""
+            notes = self.month_table.item(r, 2).text() if self.month_table.item(r, 2) else ""
+            v = self._parse_value(text)
+            if v is None:
+                continue
+            year = int(self.year_combo_planner.currentText())
+            month = int(self.month_combo_planner.currentText())
+            date_str = f"{year:04d}-{month:02d}-01"
+            if " > " in label:
+                mid, sub = label.split(" > ", 1)
+            else:
+                mid, sub = label, None
+            exp_id = self._planner_month_id_map.get(r)
+            try:
+                if exp_id:
+                    crud.update_expense(exp_id, "Month Expenses", mid, sub, date_str, v, notes or "")
+                else:
+                    new_id = crud.add_expense("Month Expenses", mid, sub, date_str, v, notes or "")
+                    self._planner_month_id_map[r] = new_id
+                saved_count += 1
+            except Exception as e:
+                errors.append(str(e))
+
+        if errors:
+            QMessageBox.critical(self, "Save errors", "\n".join(errors))
+            self.planner_status_label.setText("Errors during save.")
+        else:
+            QMessageBox.information(self, "Saved", f"✅ All saved ({saved_count} items).")
+            self.planner_status_label.setText(f"Saved {saved_count} items.")
+        # after save, reload maps to ensure IDs are consistent from DB
+        self.load_month_grid()
+
+    # ---------------- end of Monthly Planner code ----------------
 
 
 if __name__ == "__main__":
