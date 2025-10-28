@@ -716,7 +716,7 @@ class ExpenseTracker(QMainWindow):
 
         # Month combo
         self.month_combo_planner = QComboBox()
-        self.month_combo_planner.addItems([f"{i:02d}" for i in range(1, 13)])
+        self.month_combo_planner.addItems(list(calendar.month_name)[1:])
 
         controls.addWidget(QLabel("Year:"))
         controls.addWidget(self.year_combo_planner)
@@ -847,7 +847,7 @@ class ExpenseTracker(QMainWindow):
 
         """Adjust table size for selected month/year, highlight weekends, load DB data."""
         year = int(self.year_combo_planner.currentText())
-        month = int(self.month_combo_planner.currentText())
+        month = list(calendar.month_name).index(self.month_combo_planner.currentText())
         num_days = calendar.monthrange(year, month)[1]
 
         # Columns: first column is "Day" label, then one column per (mid,sub)
@@ -944,7 +944,7 @@ class ExpenseTracker(QMainWindow):
             self.vac_start.show(); self.vac_end.show(); self.vac_sub_combo.show(); self.vac_ok_btn.show()
             # default vac dates to current month span
             y = int(self.year_combo_planner.currentText())
-            m = int(self.month_combo_planner.currentText())
+            m = list(calendar.month_name).index(self.month_combo_planner.currentText())
             self.vac_start.setDate(QDate(y, m, 1))
             self.vac_end.setDate(QDate(y, m, calendar.monthrange(y, m)[1]))
         else:
@@ -963,7 +963,7 @@ class ExpenseTracker(QMainWindow):
             return
         # ensure within current month
         y = int(self.year_combo_planner.currentText())
-        m = int(self.month_combo_planner.currentText())
+        m = list(calendar.month_name).index(self.month_combo_planner.currentText())
         if not (start_dt.year == y and start_dt.month == m and end_dt.year == y and end_dt.month == m):
             QMessageBox.warning(self, "Vacation", "Vacation dates must be inside the selected month.")
             return
@@ -1082,7 +1082,7 @@ class ExpenseTracker(QMainWindow):
             # compute date and category info
             day = int(self.daily_table.item(row, 0).text())
             year = int(self.year_combo_planner.currentText())
-            month = int(self.month_combo_planner.currentText())
+            month = list(calendar.month_name).index(self.month_combo_planner.currentText())
             date_str = f"{year:04d}-{month:02d}-{day:02d}"
             mid, sub = self._planner_daily_columns[col - 1]
             # if existing expense id, update, else add
@@ -1105,7 +1105,7 @@ class ExpenseTracker(QMainWindow):
                 return
             # date = YYYY-MM-01
             year = int(self.year_combo_planner.currentText())
-            month = int(self.month_combo_planner.currentText())
+            month = list(calendar.month_name).index(self.month_combo_planner.currentText())
             date_str = f"{year:04d}-{month:02d}-01"
             label = self.month_table.item(r, 0).text()
             # parse label into mid/sub
@@ -1170,7 +1170,7 @@ class ExpenseTracker(QMainWindow):
     def save_planner(self):
         """Save all non-empty cells (daily + month) to DB (batch)."""
         year = int(self.year_combo_planner.currentText())
-        month = int(self.month_combo_planner.currentText())
+        month = list(calendar.month_name).index(self.month_combo_planner.currentText())
         num_days = calendar.monthrange(year, month)[1]
         cols = self._planner_daily_columns
 
@@ -1209,7 +1209,7 @@ class ExpenseTracker(QMainWindow):
             if v is None:
                 continue
             year = int(self.year_combo_planner.currentText())
-            month = int(self.month_combo_planner.currentText())
+            month = list(calendar.month_name).index(self.month_combo_planner.currentText())
             date_str = f"{year:04d}-{month:02d}-01"
             if " > " in label:
                 mid, sub = label.split(" > ", 1)
