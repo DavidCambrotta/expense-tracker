@@ -822,7 +822,7 @@ class ExpenseTracker(QMainWindow):
         num_days = calendar.monthrange(year, month)[1]
 
         cols_list = self._planner_daily_columns
-        col_count = 1 + len(cols_list)
+        col_count = 1 + len(cols_list) + 1 # +1 for Notes column
         row_count = 3 + num_days  # three header rows + days
 
         # Reset table
@@ -832,6 +832,17 @@ class ExpenseTracker(QMainWindow):
         self.daily_table.verticalHeader().setVisible(False)
         self.daily_table.horizontalHeader().setVisible(False)
         self.daily_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+
+        # After building headers:
+        notes_header = QTableWidgetItem("Notes")
+        notes_header.setTextAlignment(Qt.AlignCenter)
+        notes_header.setFlags(notes_header.flags() & ~Qt.ItemIsEditable)
+        # Place it in the bottom header row (subcategories row)
+        self.daily_table.setItem(1, col_count - 1, notes_header)
+        # Merge only the top two header rows (row 0 and 1) for the Notes column
+        self.daily_table.setSpan(1, col_count - 1, 2, 1)
+        # Make the Notes column wider
+        self.daily_table.setColumnWidth(col_count - 1, 200)
 
         # --- Row 0: "Daily Expenses" header spanning all Daily columns
         if col_count > 1:
@@ -874,6 +885,10 @@ class ExpenseTracker(QMainWindow):
             day_item = QTableWidgetItem(str(day))
             day_item.setFlags(day_item.flags() & ~Qt.ItemIsEditable)
             self.daily_table.setItem(row, 0, day_item)
+
+            notes_cell = QTableWidgetItem("")
+            notes_cell.setFlags(notes_cell.flags() | Qt.ItemIsEditable)
+            self.daily_table.setItem(row, col_count - 1, notes_cell)
 
             dt = datetime(year, month, day)
             is_weekend = dt.weekday() >= 5
@@ -918,7 +933,6 @@ class ExpenseTracker(QMainWindow):
                 continue
 
         self.load_month_table(year, month)
-
 
     def on_vacation_toggle(self, text):
         if text == "Yes":
@@ -1180,6 +1194,34 @@ class ExpenseTracker(QMainWindow):
                     saved_count += 1
                 except Exception as e:
                     errors.append(str(e))
+
+        # Handle Notes column for "Others > Others"
+        notes_col = 1 + len(cols)
+        for i in range(num_days):
+            row = 3 + i
+            day = i + 1
+            notes_item = self.daily_table.item(row, notes_col)
+            notes_text = notes_item.text().strip() if notes_item else ""
+            if not notes_text:
+                continue  # skip empty notes
+
+            # Check if corresponding "Others > Others" cell has a value
+            try:
+                others_idx = cols.index(("Others", "Others"))
+                cell_item = self.daily_table.item(row, 1 + others_idx)
+                if not cell_item or not self._parse_value(cell_item.text()):
+                    continue  # Notes only valid if that cell has value
+            except ValueError:
+                continue  # skip if column not found
+
+            date_str = f"{year:04d}-{month:02d}-{day:02d}"
+            v = self._parse_value(cell_item.text())
+            exp_id = self._planner_daily_id_map.get((row, 1 + others_idx))
+            if exp_id:
+                crud.update_expense(exp_id, "Daily Expenses", "Others", "Others", date_str, v, notes_text)
+            else:
+                new_id = crud.add_expense("Daily Expenses", "Others", "Others", date_str, v, notes_text)
+                self._planner_daily_id_map[(row, 1 + others_idx)] = new_id
 
         # Month table
         for r in range(self.month_table.rowCount()):
