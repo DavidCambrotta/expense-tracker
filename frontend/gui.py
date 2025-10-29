@@ -821,27 +821,31 @@ class ExpenseTracker(QMainWindow):
         month = list(calendar.month_name).index(self.month_combo_planner.currentText())
         num_days = calendar.monthrange(year, month)[1]
 
-        cols_list = self._planner_daily_columns              # list of (mid, sub)
+        cols_list = self._planner_daily_columns
         col_count = 1 + len(cols_list)
-        row_count = 2 + num_days  # two header rows + days
+        row_count = 3 + num_days  # three header rows + days
 
         # Reset table
         self.daily_table.clear()
         self.daily_table.setColumnCount(col_count)
         self.daily_table.setRowCount(row_count)
-        header_labels = ["Day"] + [f"{mid}\n{sub}" if sub else f"{mid}" for mid, sub in cols_list]
-        self.daily_table.setHorizontalHeaderLabels(header_labels)
+        self.daily_table.verticalHeader().setVisible(False)
+        self.daily_table.horizontalHeader().setVisible(False)
         self.daily_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
 
-        # Header row 0: "Daily Expenses" spanning from column 1..end (leave Day column alone)
+        # --- Row 0: "Daily Expenses" header spanning all Daily columns
         if col_count > 1:
             self.daily_table.setSpan(0, 1, 1, col_count - 1)
             top_item = QTableWidgetItem("Daily Expenses")
             top_item.setTextAlignment(Qt.AlignCenter)
             top_item.setFlags(top_item.flags() & ~Qt.ItemIsEditable)
             self.daily_table.setItem(0, 1, top_item)
+        day_title = QTableWidgetItem("Day")
+        day_title.setTextAlignment(Qt.AlignCenter)
+        day_title.setFlags(day_title.flags() & ~Qt.ItemIsEditable)
+        self.daily_table.setItem(0, 0, day_title)
 
-        # Header row 1: mid categories grouped (merge neighboring columns with same mid)
+        # --- Row 1: mid categories merged horizontally
         col_idx = 1
         for mid, group in groupby(cols_list, key=lambda x: x[0]):
             group_list = list(group)
@@ -852,11 +856,21 @@ class ExpenseTracker(QMainWindow):
             mid_item.setFlags(mid_item.flags() & ~Qt.ItemIsEditable)
             self.daily_table.setItem(1, col_idx, mid_item)
             col_idx += span_len
+        self.daily_table.setSpan(1, 0, 2, 1)  # "Day" spans two header rows
 
-        # Fill day rows (rows 2..)
+        # --- Row 2: sub-category labels (no merging)
+        col_idx = 1
+        for mid, sub in cols_list:
+            sub_item = QTableWidgetItem(sub if sub else "")
+            sub_item.setTextAlignment(Qt.AlignCenter)
+            sub_item.setFlags(sub_item.flags() & ~Qt.ItemIsEditable)
+            self.daily_table.setItem(2, col_idx, sub_item)
+            col_idx += 1
+
+        # --- Day rows (row 3 →)
         for i in range(num_days):
             day = i + 1
-            row = 2 + i
+            row = 3 + i
             day_item = QTableWidgetItem(str(day))
             day_item.setFlags(day_item.flags() & ~Qt.ItemIsEditable)
             self.daily_table.setItem(row, 0, day_item)
@@ -864,13 +878,12 @@ class ExpenseTracker(QMainWindow):
             dt = datetime(year, month, day)
             is_weekend = dt.weekday() >= 5
             for c in range(1, col_count):
-                item = QTableWidgetItem("")
-                self.daily_table.setItem(row, c, item)
+                cell = QTableWidgetItem("")
+                self.daily_table.setItem(row, c, cell)
                 if is_weekend:
-                    item.setBackground(QColor("#E8F4FF"))  # light blue
-                # editable cells — validation on save
+                    cell.setBackground(QColor("#E8F4FF"))  # light blue
 
-        # reload saved ids and values
+        # --- Load existing expenses
         self._planner_daily_id_map.clear()
         start = f"{year:04d}-{month:02d}-01"
         end = f"{year:04d}-{month:02d}-{num_days:02d}"
@@ -891,7 +904,6 @@ class ExpenseTracker(QMainWindow):
                 if exp_date.year != year or exp_date.month != month:
                     continue
                 day = exp_date.day
-                # find col for (mid, sub)
                 try:
                     col_index = 1 + cols_list.index((mid, sub if sub else ""))
                 except ValueError:
@@ -899,17 +911,12 @@ class ExpenseTracker(QMainWindow):
                         col_index = 1 + cols_list.index((mid, sub or ""))
                     except ValueError:
                         continue
-                row = 2 + (day - 1)
-                cell_item = self.daily_table.item(row, col_index)
-                if cell_item:
-                    cell_item.setText(str(val))
-                else:
-                    self.daily_table.setItem(row, col_index, QTableWidgetItem(str(val)))
+                row = 3 + (day - 1)
+                self.daily_table.item(row, col_index).setText(str(val))
                 self._planner_daily_id_map[(row, col_index)] = exp_id
             except Exception:
                 continue
 
-        # finally load month table
         self.load_month_table(year, month)
 
 
@@ -1153,7 +1160,7 @@ class ExpenseTracker(QMainWindow):
 
         # Daily cells
         for i in range(num_days):
-            row = 2 + i
+            row = 3 + i
             day = i + 1
             for c in range(1, 1 + len(cols)):
                 item = self.daily_table.item(row, c)
